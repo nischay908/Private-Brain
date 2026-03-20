@@ -1,86 +1,88 @@
-import { useState, useCallback, useRef } from 'react';
-import { ModelManager, ModelCategory, EventBus } from '@runanywhere/web';
+import { useState, useEffect, useRef } from 'react';
+import { ModelManager, ModelCategory } from '@runanywhere/web';
+import { TextGeneration } from '@runanywhere/web-llamacpp';
+import { initSDK } from '../runanywhere';
 
-export type LoaderState = 'idle' | 'downloading' | 'loading' | 'ready' | 'error';
+export type ModelStatus = 'idle' | 'initializing' | 'downloading' | 'loading' | 'ready' | 'error';
 
-interface ModelLoaderResult {
-  state: LoaderState;
+export interface ModelState {
+  status: ModelStatus;
   progress: number;
-  error: string | null;
-  ensure: () => Promise<boolean>;
+  progressLabel: string;
+  error?: string;
+  generate: (prompt: string, opts?: { maxTokens?: number; temperature?: number }) => AsyncGenerator<string>;
+  generateFull: (prompt: string, opts?: { maxTokens?: number; temperature?: number }) => Promise<string>;
 }
 
-/**
- * Hook to download + load models for a given category.
- * Tracks download progress and loading state.
- *
- * @param category - Which model category to ensure is loaded.
- * @param coexist  - If true, only unload same-category models (allows STT+LLM+TTS to coexist).
- */
-export function useModelLoader(category: ModelCategory, coexist = false): ModelLoaderResult {
-  const [state, setState] = useState<LoaderState>(() =>
-    ModelManager.getLoadedModel(category) ? 'ready' : 'idle',
-  );
+export function useModelLoader(): ModelState {
+  const [status, setStatus] = useState<ModelStatus>('idle');
   const [progress, setProgress] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const loadingRef = useRef(false);
+  const [progressLabel, setProgressLabel] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const initialized = useRef(false);
 
-  const ensure = useCallback(async (): Promise<boolean> => {
-    // Already loaded
-    if (ModelManager.getLoadedModel(category)) {
-      setState('ready');
-      return true;
-    }
+  useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+    load();
+  }, []);
 
-    if (loadingRef.current) return false;
-    loadingRef.current = true;
-
+  async function load() {
     try {
-      // Find a model for this category
-      const models = ModelManager.getModels().filter((m) => m.modality === category);
-      if (models.length === 0) {
-        setError(`No ${category} model registered`);
-        setState('error');
-        return false;
-      }
+      setStatus('initializing');
+      setProgressLabel('Initializing RunAnywhere SDK…');
+      await initSDK();
 
+      const models = ModelManager.getModels().filter(
+        (m) => m.modality === ModelCategory.Language
+      );
       const model = models[0];
+      if (!model) throw new Error('No language model found in catalog');
 
       // Download if needed
       if (model.status !== 'downloaded' && model.status !== 'loaded') {
-        setState('downloading');
-        setProgress(0);
-
-        const unsub = EventBus.shared.on('model.downloadProgress', (evt) => {
-          if (evt.modelId === model.id) {
-            setProgress(evt.progress ?? 0);
-          }
-        });
-
+        setStatus('downloading');
+        setProgressLabel('Downloading model… (first time only, ~250MB)');
         await ModelManager.downloadModel(model.id);
-        unsub();
-        setProgress(1);
+        setProgress(100);
       }
 
-      // Load
-      setState('loading');
-      const ok = await ModelManager.loadModel(model.id, { coexist });
-      if (ok) {
-        setState('ready');
-        return true;
-      } else {
-        setError('Failed to load model');
-        setState('error');
-        return false;
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-      setState('error');
-      return false;
-    } finally {
-      loadingRef.current = false;
+      // Load into memory
+      setStatus('loading');
+      setProgressLabel('Loading model into memory…');
+      await ModelManager.loadModel(model.id);
+
+      setStatus('ready');
+      setProgressLabel('Model ready!');
+    } catch (e: any) {
+      console.error('Model load error:', e);
+      setStatus('error');
+      setError(e?.message ?? 'Unknown error loading model');
     }
-  }, [category, coexist]);
+  }
 
-  return { state, progress, error, ensure };
+  async function* generate(
+    prompt: string,
+    opts: { maxTokens?: number; temperature?: number } = {}
+  ): AsyncGenerator<string> {
+    if (status !== 'ready') return;
+    const { stream } = await TextGeneration.generateStream(prompt, {
+      maxTokens: opts.maxTokens ?? 400,
+      temperature: opts.temperature ?? 0.7,
+    });
+    for await (const token of stream) {
+      yield token;
+    }
+  }
+
+  async function generateFull(
+    prompt: string,
+    opts: { maxTokens?: number; temperature?: number } = {}
+  ): Promise<string> {
+    let out = '';
+    for await (const tok of generate(prompt, opts)) out += tok;
+    return out.trim();
+  }
+
+  return { status, progress, progressLabel, error, generate, generateFull };
 }

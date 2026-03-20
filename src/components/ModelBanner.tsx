@@ -1,39 +1,39 @@
-import type { LoaderState } from '../hooks/useModelLoader';
+import React from 'react';
+import type { ModelStatus } from '../hooks/useModelLoader';
 
 interface Props {
-  state: LoaderState;
+  status: ModelStatus;
   progress: number;
-  error: string | null;
-  onLoad: () => void;
   label: string;
+  error?: string;
 }
 
-export function ModelBanner({ state, progress, error, onLoad, label }: Props) {
-  if (state === 'ready') return null;
+const STATUS_CONFIG: Record<ModelStatus, { icon: string; className: string; title: string }> = {
+  idle:          { icon: '⏳', className: 'loading', title: 'Waiting…' },
+  initializing:  { icon: '⚡', className: 'loading', title: 'Initializing SDK' },
+  downloading:   { icon: '📥', className: 'loading', title: 'Downloading AI Model' },
+  loading:       { icon: '🧠', className: 'loading', title: 'Loading Model' },
+  ready:         { icon: '✅', className: 'ready',   title: 'AI Ready — Running On-Device' },
+  error:         { icon: '❌', className: 'error',   title: 'Error Loading Model' },
+};
+
+export default function ModelBanner({ status, progress, label, error }: Props) {
+  if (status === 'ready' || status === 'idle') return null;
+
+  const cfg = STATUS_CONFIG[status];
 
   return (
-    <div className="model-banner">
-      {state === 'idle' && (
-        <>
-          <span>No {label} model loaded.</span>
-          <button className="btn btn-sm" onClick={onLoad}>Download &amp; Load</button>
-        </>
-      )}
-      {state === 'downloading' && (
-        <>
-          <span>Downloading {label} model... {(progress * 100).toFixed(0)}%</span>
+    <div className={`model-banner ${cfg.className}`}>
+      <span className="banner-icon">{cfg.icon}</span>
+      <div className="banner-info">
+        <div className="banner-title">{cfg.title}</div>
+        <div className="banner-sub">{error ?? label}</div>
+        {status === 'downloading' && (
           <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progress * 100}%` }} />
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
-        </>
-      )}
-      {state === 'loading' && <span>Loading {label} model into engine...</span>}
-      {state === 'error' && (
-        <>
-          <span className="error-text">Error: {error}</span>
-          <button className="btn btn-sm" onClick={onLoad}>Retry</button>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

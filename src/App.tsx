@@ -1,71 +1,88 @@
-import { useState, useEffect } from 'react';
-import { initSDK, getAccelerationMode } from './runanywhere';
-import { ChatTab } from './components/ChatTab';
-import { VisionTab } from './components/VisionTab';
-import { VoiceTab } from './components/VoiceTab';
-import { ToolsTab } from './components/ToolsTab';
+import React, { useState } from 'react';
+import { useModelLoader } from './hooks/useModelLoader';
+import ModelBanner from './components/ModelBanner';
+import WritingStudio from './components/WritingStudio';
+import DocumentAnalyzer from './components/DocumentAnalyzer';
+import ChatAssistant from './components/ChatAssistant';
 
-type Tab = 'chat' | 'vision' | 'voice' | 'tools';
+type Tab = 'write' | 'analyze' | 'chat';
 
-export function App() {
-  const [sdkReady, setSdkReady] = useState(false);
-  const [sdkError, setSdkError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('chat');
+const TABS: { id: Tab; icon: string; label: string }[] = [
+  { id: 'write',   icon: '✍️', label: 'Writing Studio' },
+  { id: 'analyze', icon: '🔬', label: 'Doc Analyzer' },
+  { id: 'chat',    icon: '💬', label: 'AI Chat' },
+];
 
-  useEffect(() => {
-    initSDK()
-      .then(() => setSdkReady(true))
-      .catch((err) => setSdkError(err instanceof Error ? err.message : String(err)));
-  }, []);
-
-  if (sdkError) {
-    return (
-      <div className="app-loading">
-        <h2>SDK Error</h2>
-        <p className="error-text">{sdkError}</p>
-      </div>
-    );
-  }
-
-  if (!sdkReady) {
-    return (
-      <div className="app-loading">
-        <div className="spinner" />
-        <h2>Loading RunAnywhere SDK...</h2>
-        <p>Initializing on-device AI engine</p>
-      </div>
-    );
-  }
-
-  const accel = getAccelerationMode();
+export default function App() {
+  const model = useModelLoader();
+  const [activeTab, setActiveTab] = useState<Tab>('write');
 
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>RunAnywhere AI</h1>
-        {accel && <span className="badge">{accel === 'webgpu' ? 'WebGPU' : 'CPU'}</span>}
+      {/* ── Header ── */}
+      <header className="header">
+        <div className="logo">
+          <div className="logo-icon">🧠</div>
+          <div className="logo-text">Think<span>Local</span></div>
+        </div>
+        <div className="header-badge">
+          <div className="pulse-dot" />
+          On-Device AI · Zero Cloud
+        </div>
       </header>
 
-      <nav className="tab-bar">
-        <button className={activeTab === 'chat' ? 'active' : ''} onClick={() => setActiveTab('chat')}>
-          💬 Chat
-        </button>
-        <button className={activeTab === 'vision' ? 'active' : ''} onClick={() => setActiveTab('vision')}>
-          📷 Vision
-        </button>
-        <button className={activeTab === 'voice' ? 'active' : ''} onClick={() => setActiveTab('voice')}>
-          🎙️ Voice
-        </button>
-        <button className={activeTab === 'tools' ? 'active' : ''} onClick={() => setActiveTab('tools')}>
-          🔧 Tools
-        </button>
+      {/* ── Nav ── */}
+      <nav className="nav">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            className={`nav-tab ${activeTab === t.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(t.id)}
+          >
+            <span className="nav-tab-icon">{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
       </nav>
 
-      <main className="tab-content">
-        {activeTab === 'chat' && <ChatTab />}
-        {activeTab === 'vision' && <VisionTab />}
-        {activeTab === 'voice' && <VoiceTab />}
-        {activeTab === 'tools' && <ToolsTab />}
+      {/* ── Content ── */}
+      <main className="main">
+        {/* Model Banner */}
+        <ModelBanner
+          status={model.status}
+          progress={model.progress}
+          label={model.progressLabel}
+          error={model.error}
+        />
+
+        {/* Hero (only on write tab when model is loading or fresh) */}
+        {activeTab === 'write' && model.status !== 'ready' && (
+          <div className="hero">
+            <h1 className="hero-title">
+              AI That <span className="hero-gradient">Runs on You</span>
+            </h1>
+            <p className="hero-sub">
+              A privacy-first writing assistant powered by on-device AI.
+              Your data never leaves your browser — ever.
+            </p>
+            <div className="feature-chips">
+              <span className="feature-chip purple">⚡ Sub-100ms responses</span>
+              <span className="feature-chip cyan">🔒 100% Private</span>
+              <span className="feature-chip green">✈️ Works Offline</span>
+              <span className="feature-chip purple">💸 Zero Cloud Costs</span>
+            </div>
+          </div>
+        )}
+
+        {/* Tab Content */}
+        {activeTab === 'write'   && <WritingStudio   model={model} />}
+        {activeTab === 'analyze' && <DocumentAnalyzer model={model} />}
+        {activeTab === 'chat'    && <ChatAssistant    model={model} />}
+
+        {/* Footer note */}
+        <div style={{ textAlign: 'center', paddingBottom: 32, fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
+          Powered by RunAnywhere SDK · LFM2 350M · WebAssembly · Built at HackXtreme
+        </div>
       </main>
     </div>
   );
