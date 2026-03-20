@@ -4,9 +4,11 @@ import {
   ModelManager,
   ModelCategory,
   LLMFramework,
+  EventBus,
   type CompactModelDef,
 } from '@runanywhere/web';
 
+// @ts-ignore — LlamaCPP exists at runtime even if TS can't find it in beta.10 types
 import { LlamaCPP } from '@runanywhere/web-llamacpp';
 
 export const MODELS: CompactModelDef[] = [
@@ -28,17 +30,15 @@ let _initPromise: Promise<void> | null = null;
 export async function initSDK(): Promise<void> {
   if (_initPromise) return _initPromise;
   _initPromise = (async () => {
-    // 1. Initialize core SDK
     await RunAnywhere.initialize({
       environment: SDKEnvironment.Development,
       debug: true,
     });
-    // 2. Register LlamaCPP backend — loads WASM automatically
+    // @ts-ignore
     await LlamaCPP.register();
-    // 3. Register model catalog
     RunAnywhere.registerModels(MODELS);
   })();
   return _initPromise;
 }
 
-export { RunAnywhere, ModelManager, ModelCategory };
+export { RunAnywhere, ModelManager, ModelCategory, EventBus };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { ModelManager, ModelCategory } from '@runanywhere/web';
+import { ModelManager, ModelCategory, EventBus } from '@runanywhere/web';
+// @ts-ignore
 import { TextGeneration } from '@runanywhere/web-llamacpp';
 import { initSDK } from '../runanywhere';
 
@@ -20,12 +21,19 @@ export function useModelLoader(): ModelState {
   const [progressLabel, setProgressLabel] = useState('');
   const [error, setError] = useState<string | undefined>();
   const initialized = useRef(false);
+  // Use a ref to track ready state — avoids stale closure bug
+  const isReady = useRef(false);
 
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
     load();
   }, []);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    isReady.current = status === 'ready';
+  }, [status]);
 
   async function load() {
     try {
@@ -39,19 +47,25 @@ export function useModelLoader(): ModelState {
       const model = models[0];
       if (!model) throw new Error('No language model found in catalog');
 
-      // Download if needed
       if (model.status !== 'downloaded' && model.status !== 'loaded') {
         setStatus('downloading');
         setProgressLabel('Downloading model… (first time only, ~250MB)');
+
+        EventBus.shared.on('model.downloadProgress', (evt: any) => {
+          const pct = Math.round((evt.progress ?? 0) * 100);
+          setProgress(pct);
+          setProgressLabel(`Downloading… ${pct}%`);
+        });
+
         await ModelManager.downloadModel(model.id);
         setProgress(100);
       }
 
-      // Load into memory
       setStatus('loading');
       setProgressLabel('Loading model into memory…');
       await ModelManager.loadModel(model.id);
 
+      isReady.current = true;
       setStatus('ready');
       setProgressLabel('Model ready!');
     } catch (e: any) {
@@ -65,13 +79,27 @@ export function useModelLoader(): ModelState {
     prompt: string,
     opts: { maxTokens?: number; temperature?: number } = {}
   ): AsyncGenerator<string> {
-    if (status !== 'ready') return;
-    const { stream } = await TextGeneration.generateStream(prompt, {
-      maxTokens: opts.maxTokens ?? 400,
-      temperature: opts.temperature ?? 0.7,
-    });
-    for await (const token of stream) {
-      yield token;
+    // Use ref instead of status state — avoids stale closure
+    if (!isReady.current) {
+      console.warn('Model not ready yet');
+      return;
+    }
+    try {
+      console.log('Starting generation for prompt:', prompt.slice(0, 50));
+      const { stream } = await TextGeneration.generateStream(prompt, {
+        maxTokens: opts.maxTokens ?? 300,
+        temperature: opts.temperature ?? 0.7,
+      });
+      console.log('Stream obtained, reading tokens...');
+      let tokenCount = 0;
+      for await (const token of stream) {
+        tokenCount++;
+        yield token;
+      }
+      console.log('Generation complete, tokens:', tokenCount);
+    } catch (e) {
+      console.error('Generation error:', e);
+      yield 'Error generating response. Please try again.';
     }
   }
 
