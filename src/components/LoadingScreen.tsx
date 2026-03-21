@@ -22,7 +22,7 @@ export default function LoadingScreen({ progress, label, status }: LoadingScreen
 
         {/* Brand */}
         <h1 className="loading-title">
-          Think<span className="gradient-text">Local</span>
+          Private<span className="gradient-text">Brain</span>
         </h1>
         <p className="loading-subtitle">Privacy-First AI Assistant</p>
 

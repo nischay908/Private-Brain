@@ -28,7 +28,7 @@ export default function App() {
       <header className="header">
         <div className="logo">
           <div className="logo-icon">🧠</div>
-          <div className="logo-text">Think<span>Local</span></div>
+          <div className="logo-text">Private<span>Brain</span></div>
         </div>
         <nav className="header-nav">
           {TABS.map(t => (
