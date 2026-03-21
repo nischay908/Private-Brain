@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useModelLoader } from './hooks/useModelLoader';
+import LoadingScreen from './components/LoadingScreen';
 import ModelBanner from './components/ModelBanner';
 import WritingStudio from './components/WritingStudio';
 import DocumentAnalyzer from './components/DocumentAnalyzer';
@@ -16,6 +17,17 @@ const TABS: { id: Tab; icon: string; label: string }[] = [
 export default function App() {
   const model = useModelLoader();
   const [activeTab, setActiveTab] = useState<Tab>('write');
+
+  // Show full-screen loading until model is ready
+  if (model.status === 'idle' || model.status === 'initializing' || model.status === 'downloading' || model.status === 'loading') {
+    return (
+      <LoadingScreen 
+        progress={model.progress}
+        label={model.progressLabel}
+        status={model.status}
+      />
+    );
+  }
 
   return (
     <div className="app">
@@ -81,7 +93,7 @@ export default function App() {
 
         {/* Footer note */}
         <div style={{ textAlign: 'center', paddingBottom: 32, fontSize: 12, color: 'var(--text-dim)', fontFamily: 'var(--font-mono)' }}>
-          Powered by RunAnywhere SDK · LFM2 350M · WebAssembly · Built at HackXtreme
+          Powered by WebLLM · Llama 3.2 1B · WebGPU · 100% Private
         </div>
       </main>
     </div>

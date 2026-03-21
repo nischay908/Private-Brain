@@ -684,3 +684,318 @@ textarea::placeholder { color: var(--text-dim); font-style: italic; }
   .hero-title { font-size: 30px; }
   .templates-grid { grid-template-columns: repeat(2, 1fr); }
 }
+/* ══════════════════════════════════════════════════════════════════════════════ */
+/* ── LOADING SCREEN ── */
+/* ══════════════════════════════════════════════════════════════════════════════ */
+
+.loading-screen {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(135deg, #0a0e1a 0%, #1a1035 50%, #0a0e1a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeInScreen 0.5s ease;
+}
+
+@keyframes fadeInScreen {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.loading-content {
+  text-align: center;
+  position: relative;
+  z-index: 2;
+}
+
+/* Animated Logo */
+.loading-logo {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 30px;
+}
+
+.logo-icon-large {
+  font-size: 60px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  animation: floatLogo 3s ease-in-out infinite;
+}
+
+@keyframes floatLogo {
+  0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+  50% { transform: translate(-50%, -50%) translateY(-10px); }
+}
+
+.loading-rings {
+  position: absolute;
+  inset: 0;
+}
+
+.ring {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 50%;
+  animation: ripple 3s ease-out infinite;
+}
+
+.ring-1 {
+  inset: 0;
+  border-color: rgba(139,92,246,0.6);
+  animation-delay: 0s;
+}
+
+.ring-2 {
+  inset: -10px;
+  border-color: rgba(34,211,238,0.4);
+  animation-delay: 1s;
+}
+
+.ring-3 {
+  inset: -20px;
+  border-color: rgba(16,185,129,0.3);
+  animation-delay: 2s;
+}
+
+@keyframes ripple {
+  0% { 
+    transform: scale(0.8); 
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% { 
+    transform: scale(1.4); 
+    opacity: 0;
+  }
+}
+
+/* Brand */
+.loading-title {
+  font-size: 48px;
+  font-weight: 900;
+  letter-spacing: -2px;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 3s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { filter: hue-rotate(0deg); }
+  50% { filter: hue-rotate(30deg); }
+}
+
+.loading-subtitle {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-bottom: 50px;
+  font-weight: 400;
+}
+
+/* Progress Bar */
+.loading-progress-container {
+  max-width: 400px;
+  margin: 0 auto 20px;
+}
+
+.loading-progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.loading-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 10px;
+  transition: width 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(139,92,246,0.5);
+}
+
+.progress-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(255,255,255,0.3), 
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
+}
+
+.loading-percentage {
+  margin-top: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+/* Status */
+.loading-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 30px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulseStatus 2s ease-in-out infinite;
+}
+
+@keyframes pulseStatus {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* Feature Pills */
+.loading-features {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 40px;
+}
+
+.feature-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  backdrop-filter: blur(10px);
+  animation: slideUpPill 0.6s ease backwards;
+}
+
+.feature-pill:nth-child(1) { animation-delay: 0.1s; }
+.feature-pill:nth-child(2) { animation-delay: 0.2s; }
+.feature-pill:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes slideUpPill {
+  from { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.feature-icon {
+  font-size: 14px;
+}
+
+/* Particles */
+.particles {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: var(--accent);
+  border-radius: 50%;
+  opacity: 0;
+  animation: particleFloat linear infinite;
+}
+
+@keyframes particleFloat {
+  0% { 
+    opacity: 0; 
+    transform: translateY(100vh) scale(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% { 
+    opacity: 0; 
+    transform: translateY(-100vh) scale(1);
+  }
+}
+
+/* Enhanced Hero Animations */
+.hero-title {
+  animation: fadeUp 0.6s ease, heroFloat 6s ease-in-out infinite;
+}
+
+@keyframes heroFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+}
+
+.feature-chip {
+  animation: chipBounce 0.5s ease backwards;
+  transition: all 0.3s ease;
+}
+
+.feature-chip:nth-child(1) { animation-delay: 0.1s; }
+.feature-chip:nth-child(2) { animation-delay: 0.2s; }
+.feature-chip:nth-child(3) { animation-delay: 0.3s; }
+.feature-chip:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes chipBounce {
+  0% { 
+    opacity: 0; 
+    transform: scale(0.5) translateY(20px); 
+  }
+  50% {
+    transform: scale(1.05) translateY(-5px);
+  }
+  100% { 
+    opacity: 1; 
+    transform: scale(1) translateY(0); 
+  }
+}
+
+.feature-chip:hover {
+  transform: translateY(-3px) scale(1.05);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
