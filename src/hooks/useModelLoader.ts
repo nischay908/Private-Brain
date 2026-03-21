@@ -89,22 +89,24 @@ export function useModelLoader(): ModelState {
       const chunks = await engineRef.current.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
         temperature: opts.temperature ?? 0.7,
-        max_tokens: opts.maxTokens ?? 100,
+        max_tokens: opts.maxTokens ?? 150,
         stream: true,
       });
 
+      let totalGenerated = '';
       for await (const chunk of chunks) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
-          yield content;
+          totalGenerated += content;
+          yield content; // Yield each chunk immediately
         }
       }
 
-      console.log('✅ Generation complete!');
+      console.log('✅ Generation complete!', totalGenerated.length, 'chars');
 
     } catch (e: any) {
       console.error('❌ Generation error:', e);
-      yield `Error: ${e?.message}`;
+      yield `Error: ${e?.message || 'Generation failed'}. Please try again.`;
     }
   }
 

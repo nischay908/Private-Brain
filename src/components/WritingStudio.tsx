@@ -220,18 +220,23 @@ export default function WritingStudio({ model }: Props) {
 
       {/* ── Output ── */}
       {(output || isGenerating) && (
-        <div className="card" style={{ borderColor: 'rgba(6,182,212,0.2)' }}>
+        <div className="card" style={{ borderColor: 'rgba(6,182,212,0.3)', boxShadow: '0 4px 20px rgba(6,182,212,0.1)' }}>
           <div className="card-header">
-            <span className="card-title" style={{ color: 'var(--accent2)' }}>🤖 AI Output <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400 }}>— running on your device</span></span>
+            <span className="card-title" style={{ color: 'var(--accent2)' }}>
+              🤖 AI Output {isGenerating && <span style={{ fontSize: 11, color: 'var(--accent)', fontWeight: 400, marginLeft: 8 }}>— generating...</span>}
+              {!isGenerating && <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 400, marginLeft: 8 }}>— complete</span>}
+            </span>
             <div style={{ display: 'flex', gap: 8 }}>
-              <div className="stat-chip">Words: <span>{outputWords}</span></div>
-              <button className="btn btn-secondary btn-sm" onClick={copyOutput}>📋 Copy</button>
+              {output && <div className="stat-chip">Words: <span>{outputWords}</span></div>}
+              <button className="btn btn-secondary btn-sm" onClick={copyOutput} disabled={!output || isGenerating}>
+                📋 Copy
+              </button>
             </div>
           </div>
           <div className="card-body">
-            <div className="output-wrap">
+            <div className={`output-wrap ${isGenerating ? 'generating' : ''}`}>
               <div className="output-text">
-                {output}
+                {output || 'Starting generation...'}
                 {isGenerating && <span className="typing-cursor" />}
               </div>
             </div>
