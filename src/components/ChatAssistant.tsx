@@ -38,7 +38,19 @@ export default function ChatAssistant({ model }: Props) {
 
   const send = async (text?: string) => {
     const msg = (text ?? input).trim();
-    if (!msg || model.status !== 'ready' || isGenerating) return;
+    if (!msg) {
+      console.warn('No message to send');
+      return;
+    }
+    if (model.status !== 'ready') {
+      console.warn('Model not ready yet');
+      return;
+    }
+    if (isGenerating) {
+      console.warn('Already generating response');
+      return;
+    }
+    
     setInput('');
 
     const userMsg: Message = { role: 'user', content: msg, id: Date.now().toString() };
@@ -52,10 +64,19 @@ export default function ChatAssistant({ model }: Props) {
     try {
       let out = '';
       const prompt = buildChatPrompt([...messages, userMsg], msg);
+      console.log('Generating chat response...');
+      
       for await (const tok of model.generate(prompt, { maxTokens: 400, temperature: 0.75 })) {
         out += tok;
         setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: out } : m));
       }
+      
+      console.log(`Response complete (${out.length} characters)`);
+    } catch (error) {
+      console.error('Chat generation error:', error);
+      setMessages(prev => prev.map(m => 
+        m.id === aiId ? { ...m, content: 'Sorry, I encountered an error. Please try again.' } : m
+      ));
     } finally {
       setIsGenerating(false);
     }

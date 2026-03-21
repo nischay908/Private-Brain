@@ -27,6 +27,14 @@ export default function WritingStudio({ model }: Props) {
   const [showToast, setShowToast] = useState(false);
   const abortRef = useRef(false);
 
+  // Example prompts users can try
+  const EXAMPLE_PROMPTS = [
+    'Benefits of daily exercise for mental health',
+    'My startup idea for an eco-friendly delivery service',
+    'How to improve team productivity in remote work',
+    'The importance of cybersecurity for small businesses',
+  ];
+
   const handleInput = (val: string) => {
     setInput(val);
     setWordCount(val.trim() ? val.trim().split(/\s+/).length : 0);
@@ -35,7 +43,14 @@ export default function WritingStudio({ model }: Props) {
 
   const applyTemplate = async (template: typeof TEMPLATES[0]) => {
     if (!input.trim()) {
-      setInput('Enter your topic or text above, then click a template!');
+      // Show a helpful message by temporarily setting it
+      const placeholder = `💡 Tip: Enter your topic or text in the box above, then click "${template.name}" to generate!`;
+      setInput(placeholder);
+      setTimeout(() => setInput(''), 3000);
+      return;
+    }
+    if (model.status !== 'ready') {
+      console.warn('Model not ready yet');
       return;
     }
     const basePrompt = template.prompt(input);
@@ -61,22 +76,87 @@ export default function WritingStudio({ model }: Props) {
     }
   };
 
-  const handleCustomGenerate = () => {
-    if (!input.trim()) return;
-    runGeneration(`[Tone: ${activeTone}]\n\nUser request: ${input}\n\nProvide a helpful, well-structured response.`);
+  const handleCustomGenerate = async () => {
+    if (!input.trim()) {
+      console.warn('No input provided');
+      return;
+    }
+    if (model.status !== 'ready') {
+      console.warn('Model not ready yet, current status:', model.status);
+      alert('Please wait for the AI model to finish loading. Current status: ' + model.status);
+      return;
+    }
+    
+    console.log('=== STARTING CUSTOM GENERATION ===');
+    console.log('Input:', input);
+    console.log('Tone:', activeTone);
+    console.log('Model status:', model.status);
+    
+    const prompt = `[Tone: ${activeTone}]\n\nUser request: ${input}\n\nProvide a helpful, well-structured response.`;
+    await runGeneration(prompt);
   };
 
   const copyOutput = () => {
-    if (!output) return;
-    navigator.clipboard.writeText(output);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+    if (!output) {
+      console.warn('No output to copy');
+      return;
+    }
+    navigator.clipboard.writeText(output).then(() => {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   const outputWords = output.trim() ? output.trim().split(/\s+/).length : 0;
 
   return (
     <>
+      {/* ── Quick Examples (when no input) ── */}
+      {!input && !output && (
+        <div className="card" style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
+          <div className="card-header">
+            <span className="card-title">💡 Quick Examples to Get Started</span>
+          </div>
+          <div className="card-body">
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 12 }}>
+              Click any example below to try it out, or type your own topic above:
+            </p>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {EXAMPLE_PROMPTS.map(prompt => (
+                <button
+                  key={prompt}
+                  onClick={() => setInput(prompt)}
+                  style={{
+                    padding: '10px 14px',
+                    background: 'rgba(139,92,246,0.05)',
+                    border: '1px solid rgba(139,92,246,0.15)',
+                    borderRadius: 8,
+                    color: 'var(--text-primary)',
+                    fontSize: 12,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(139,92,246,0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgba(139,92,246,0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(139,92,246,0.15)';
+                  }}
+                >
+                  → {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Input Card ── */}
       <div className="card">
         <div className="card-header">
@@ -97,7 +177,7 @@ export default function WritingStudio({ model }: Props) {
           </div>
           <textarea
             rows={5}
-            placeholder="Type your topic, paste your text, or describe what you want to write…"
+            placeholder={`Try any of these examples:\n\n• "My company's new product launch next quarter"\n• "Benefits of remote work for tech companies"\n• "I managed a team of 5 developers and delivered the project 2 weeks early"\n• "The process of photosynthesis in plants"\n\nOr write your own topic, then click a template below!`}
             value={input}
             onChange={e => handleInput(e.target.value)}
           />

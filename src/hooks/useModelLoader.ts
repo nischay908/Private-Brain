@@ -1,8 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ModelManager, ModelCategory, EventBus } from '@runanywhere/web';
-// @ts-ignore
-import { TextGeneration } from '@runanywhere/web-llamacpp';
-import { initSDK } from '../runanywhere';
+import * as webllm from '@mlc-ai/web-llm';
 
 export type ModelStatus = 'idle' | 'initializing' | 'downloading' | 'loading' | 'ready' | 'error';
 
@@ -15,14 +12,17 @@ export interface ModelState {
   generateFull: (prompt: string, opts?: { maxTokens?: number; temperature?: number }) => Promise<string>;
 }
 
+// Use a small, fast model
+const MODEL_NAME = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+
 export function useModelLoader(): ModelState {
   const [status, setStatus] = useState<ModelStatus>('idle');
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState('');
   const [error, setError] = useState<string | undefined>();
   const initialized = useRef(false);
-  // Use a ref to track ready state — avoids stale closure bug
   const isReady = useRef(false);
+  const engineRef = useRef<webllm.MLCEngine | null>(null);
 
   useEffect(() => {
     if (initialized.current) return;
@@ -30,48 +30,47 @@ export function useModelLoader(): ModelState {
     load();
   }, []);
 
-  // Keep ref in sync with state
   useEffect(() => {
     isReady.current = status === 'ready';
   }, [status]);
 
   async function load() {
     try {
+      console.log('========================================');
+      console.log('🚀 WEBLLM - NO ONNX, NO IMAGE ERRORS!');
+      console.log('========================================');
+      
       setStatus('initializing');
-      setProgressLabel('Initializing RunAnywhere SDK…');
-      await initSDK();
+      setProgressLabel('Initializing WebLLM...');
+      setProgress(5);
 
-      const models = ModelManager.getModels().filter(
-        (m) => m.modality === ModelCategory.Language
-      );
-      const model = models[0];
-      if (!model) throw new Error('No language model found in catalog');
+      const engine = await webllm.CreateMLCEngine(MODEL_NAME, {
+        initProgressCallback: (report: webllm.InitProgressReport) => {
+          console.log('📊 Progress:', report.text, report.progress);
+          
+          setStatus('downloading');
+          const percent = Math.round(report.progress * 100);
+          setProgress(percent);
+          setProgressLabel(report.text);
+        },
+      });
 
-      if (model.status !== 'downloaded' && model.status !== 'loaded') {
-        setStatus('downloading');
-        setProgressLabel('Downloading model… (first time only, ~250MB)');
-
-        EventBus.shared.on('model.downloadProgress', (evt: any) => {
-          const pct = Math.round((evt.progress ?? 0) * 100);
-          setProgress(pct);
-          setProgressLabel(`Downloading… ${pct}%`);
-        });
-
-        await ModelManager.downloadModel(model.id);
-        setProgress(100);
-      }
-
-      setStatus('loading');
-      setProgressLabel('Loading model into memory…');
-      await ModelManager.loadModel(model.id);
-
-      isReady.current = true;
+      engineRef.current = engine;
+      
       setStatus('ready');
-      setProgressLabel('Model ready!');
+      setProgress(100);
+      setProgressLabel('✅ AI Ready - No errors!');
+      isReady.current = true;
+      
+      console.log('========================================');
+      console.log('✅✅✅ WEBLLM READY - WORKING! ✅✅✅');
+      console.log('========================================');
+      
     } catch (e: any) {
-      console.error('Model load error:', e);
+      console.error('❌ Load failed:', e);
       setStatus('error');
-      setError(e?.message ?? 'Unknown error loading model');
+      setProgress(0);
+      setError(`Failed to load: ${e?.message}`);
     }
   }
 
@@ -79,27 +78,33 @@ export function useModelLoader(): ModelState {
     prompt: string,
     opts: { maxTokens?: number; temperature?: number } = {}
   ): AsyncGenerator<string> {
-    // Use ref instead of status state — avoids stale closure
-    if (!isReady.current) {
-      console.warn('Model not ready yet');
+    if (!isReady.current || !engineRef.current) {
+      yield 'Model not ready yet...';
       return;
     }
+
     try {
-      console.log('Starting generation for prompt:', prompt.slice(0, 50));
-      const { stream } = await TextGeneration.generateStream(prompt, {
-        maxTokens: opts.maxTokens ?? 300,
+      console.log('🚀 Generating with WebLLM...');
+      
+      const chunks = await engineRef.current.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
         temperature: opts.temperature ?? 0.7,
+        max_tokens: opts.maxTokens ?? 100,
+        stream: true,
       });
-      console.log('Stream obtained, reading tokens...');
-      let tokenCount = 0;
-      for await (const token of stream) {
-        tokenCount++;
-        yield token;
+
+      for await (const chunk of chunks) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
       }
-      console.log('Generation complete, tokens:', tokenCount);
-    } catch (e) {
-      console.error('Generation error:', e);
-      yield 'Error generating response. Please try again.';
+
+      console.log('✅ Generation complete!');
+
+    } catch (e: any) {
+      console.error('❌ Generation error:', e);
+      yield `Error: ${e?.message}`;
     }
   }
 
@@ -108,7 +113,9 @@ export function useModelLoader(): ModelState {
     opts: { maxTokens?: number; temperature?: number } = {}
   ): Promise<string> {
     let out = '';
-    for await (const tok of generate(prompt, opts)) out += tok;
+    for await (const tok of generate(prompt, opts)) {
+      out += tok;
+    }
     return out.trim();
   }
 

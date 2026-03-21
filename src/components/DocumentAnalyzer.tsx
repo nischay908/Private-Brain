@@ -38,26 +38,57 @@ export default function DocumentAnalyzer({ model }: Props) {
   const outputWords = output.trim() ? output.trim().split(/\s+/).length : 0;
 
   const analyze = async () => {
-    if (!docText.trim() || model.status !== 'ready' || isGenerating) return;
+    if (!docText.trim()) {
+      console.warn('No document text provided');
+      return;
+    }
+    if (model.status !== 'ready') {
+      console.warn('Model not ready yet');
+      return;
+    }
+    if (isGenerating) {
+      console.warn('Already generating');
+      return;
+    }
+    
     setIsGenerating(true);
     setOutput('');
     abortRef.current = false;
+    
     try {
       let out = '';
-      for await (const tok of model.generate(buildPrompt(activeMode, docText), { maxTokens: 500, temperature: 0.5 })) {
-        if (abortRef.current) break;
+      const prompt = buildPrompt(activeMode, docText);
+      console.log(`Starting ${activeMode} analysis...`);
+      
+      for await (const tok of model.generate(prompt, { maxTokens: 500, temperature: 0.5 })) {
+        if (abortRef.current) {
+          console.log('Analysis aborted by user');
+          break;
+        }
         out += tok;
         setOutput(out);
       }
+      
+      console.log(`Analysis complete (${out.length} characters generated)`);
+    } catch (error) {
+      console.error('Analysis error:', error);
+      setOutput('Error during analysis. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
   const copyOutput = () => {
-    navigator.clipboard.writeText(output);
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 2000);
+    if (!output) {
+      console.warn('No output to copy');
+      return;
+    }
+    navigator.clipboard.writeText(output).then(() => {
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 2000);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   const clearAll = () => {

@@ -18,7 +18,18 @@ const STATUS_CONFIG: Record<ModelStatus, { icon: string; className: string; titl
 };
 
 export default function ModelBanner({ status, progress, label, error }: Props) {
-  if (status === 'ready' || status === 'idle') return null;
+  // Show briefly when ready, then fade out
+  const [showReady, setShowReady] = React.useState(false);
+
+  React.useEffect(() => {
+    if (status === 'ready') {
+      setShowReady(true);
+      const timer = setTimeout(() => setShowReady(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [status]);
+
+  if (status === 'idle' || (status === 'ready' && !showReady)) return null;
 
   const cfg = STATUS_CONFIG[status];
 

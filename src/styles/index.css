@@ -222,8 +222,16 @@ body::after {
 }
 
 .model-banner.loading { border-color: rgba(139,92,246,0.25); }
-.model-banner.ready   { border-color: rgba(16,185,129,0.25); }
+.model-banner.ready   { 
+  border-color: rgba(16,185,129,0.25); 
+  animation: slideDown 0.4s ease, fadeOut 0.5s ease 2.5s forwards;
+}
 .model-banner.error   { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.05); }
+
+@keyframes fadeOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
 
 .banner-icon { font-size: 26px; flex-shrink: 0; }
 .banner-info { flex: 1; }
