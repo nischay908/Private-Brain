@@ -11,22 +11,11 @@ interface Props {
   model: ModelState;
 }
 
-// Only 3 tools
 const NAV: { id: Tab; label: string; sub: string; icon: React.ReactNode }[] = [
   {
-    id: 'chat',
-    label: 'Research Chat',
-    sub: 'Ask anything, privately',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-    ),
-  },
-  {
-    id: 'notes',
-    label: 'Smart Notes',
-    sub: 'Capture & summarize',
+    id: 'pdf',
+    label: 'PDF Research',
+    sub: 'Upload · Analyze · Chat',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -37,13 +26,13 @@ const NAV: { id: Tab; label: string; sub: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    id: 'research',
-    label: 'PDF Analyzer',
-    sub: 'Analyze any document',
+    id: 'notes',
+    label: 'Smart Notes',
+    sub: 'Capture & summarize',
     icon: (
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <circle cx="11" cy="11" r="8"/>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        <path d="M12 20h9"/>
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
       </svg>
     ),
   },
@@ -76,25 +65,23 @@ export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark
               </defs>
             </svg>
           </div>
-          <div className="pb-logo-text">
-            Private<strong>Brain</strong>
-            <span className="pb-logo-tagline">Research Assistant</span>
+          <div>
+            <div className="pb-logo-text">Private<strong>Brain</strong></div>
+            <div className="pb-logo-tagline">Private AI Research</div>
           </div>
         </div>
 
-        {/* Model status */}
+        {/* Model pill */}
         <div className="pb-model-pill">
           <span className="pb-model-dot" style={{ background: STATUS_COLOR[model.status] ?? '#6B7280' }} />
           <span className="pb-model-label">
-            {model.status === 'ready'
-              ? '🔒 On-device · Llama 3.2'
-              : model.progressLabel || 'Loading AI model…'}
+            {model.status === 'ready' ? '🔒 On-device · Llama 3.2' : model.progressLabel || 'Loading AI…'}
           </span>
         </div>
 
-        {/* Navigation — only 3 tools */}
+        {/* Nav */}
         <nav className="pb-nav">
-          <span className="pb-nav-section">Research Tools</span>
+          <span className="pb-nav-section">Tools</span>
           {NAV.map(item => (
             <button
               key={item.id}
@@ -113,23 +100,18 @@ export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark
 
         <div style={{ flex: 1 }} />
 
-        {/* Demo button */}
         <div style={{ padding: '0 0 10px' }}>
           <button className="demo-trigger-btn" onClick={() => setShowDemo(true)}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
             Demo Mode
             <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.6 }}>Hackathon</span>
           </button>
         </div>
 
-        {/* Bottom controls */}
         <div className="pb-sidebar-bottom">
           <div className="pb-privacy-badge">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
             Zero Cloud · Your data stays here
           </div>

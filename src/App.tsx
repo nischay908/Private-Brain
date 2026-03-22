@@ -2,17 +2,15 @@ import React, { useState } from 'react';
 import { useModelLoader } from './hooks/useModelLoader';
 import LoadingScreen from './components/LoadingScreen';
 import Sidebar from './components/Sidebar';
-import ChatAssistant from './components/ChatAssistant';
+import PDFWorkspace from './components/PDFWorkspace';
 import SmartNotes from './components/SmartNotes';
-import ResearchAnalyzer from './components/ResearchAnalyzer';
 import OfflineBanner from './components/OfflineBanner';
 
-// Only 3 tools — Chat, Notes, Research
-export type Tab = 'chat' | 'notes' | 'research';
+export type Tab = 'pdf' | 'notes';
 
 export default function App() {
   const model = useModelLoader();
-  const [activeTab, setActiveTab] = useState<Tab>('chat');
+  const [activeTab, setActiveTab] = useState<Tab>('pdf');
   const [darkMode, setDarkMode]   = useState(true);
 
   if (['idle','initializing','downloading','loading'].includes(model.status)) {
@@ -31,9 +29,8 @@ export default function App() {
       <div className="pb-main-wrapper">
         <OfflineBanner />
         <main className="pb-main">
-          {activeTab === 'chat'     && <ChatAssistant    model={model} />}
-          {activeTab === 'notes'    && <SmartNotes       model={model} />}
-          {activeTab === 'research' && <ResearchAnalyzer model={model} />}
+          {activeTab === 'pdf'   && <PDFWorkspace model={model} />}
+          {activeTab === 'notes' && <SmartNotes   model={model} />}
         </main>
       </div>
     </div>
