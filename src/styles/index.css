@@ -2914,3 +2914,441 @@ button, [role="button"] { cursor: pointer; }
   .demo-body { grid-template-columns: 1fr; }
   .demo-info { border-right: none; border-bottom: 1px solid var(--border); max-height: 220px; }
 }
+/* ═══════════════════════════════════════════════════════════
+   PRIVATEBRAIN — POLISH & MICRO-INTERACTIONS
+   Paste at the very BOTTOM of src/styles/index.css
+   Zero functionality changes — pure visual refinement
+═══════════════════════════════════════════════════════════ */
+
+/* ── Better font stack ── */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&family=Syne:wght@700;800&display=swap');
+
+/* Override root font with DM Sans for body, Syne for logo */
+.pb-root, .dark, .light {
+  font-family: 'DM Sans', sans-serif;
+}
+.pb-logo-text {
+  font-family: 'Syne', sans-serif !important;
+  letter-spacing: -0.8px;
+}
+.pb-model-label, .session-meta, .bubble-time,
+.chat-input-hint, .notes-editor-footer, .notes-sidebar-footer {
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Tab transitions — content fades in on switch ── */
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pb-main > * {
+  animation: tabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Button micro-interactions ── */
+.btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+/* Ripple on click */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.08);
+  opacity: 0;
+  transition: opacity 0.15s;
+  border-radius: inherit;
+}
+.btn:active::after { opacity: 1; }
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 6px 20px rgba(129,140,248,0.35);
+}
+.btn-primary:active:not(:disabled) { transform: translateY(0) scale(0.98); }
+
+.btn-secondary:hover:not(:disabled) { transform: translateY(-1px); }
+.btn-secondary:active:not(:disabled) { transform: translateY(0); }
+
+/* ── Nav item refined hover ── */
+.pb-nav-item {
+  transition: all 0.16s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.pb-nav-item:hover:not(.active) {
+  transform: translateX(3px);
+}
+.pb-nav-item.active {
+  transition: background 0.2s, color 0.2s !important;
+}
+
+/* ── Card hover lift ── */
+.card {
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.card:hover {
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+}
+
+/* ── Template button spring ── */
+.template-btn {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.template-btn:hover:not(:disabled) {
+  transform: translateY(-3px) scale(1.01) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important;
+}
+.template-btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+/* ── Starter buttons ── */
+.starter-btn {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.starter-btn:hover:not(:disabled) {
+  transform: translateY(-3px) !important;
+  box-shadow: 0 8px 20px rgba(129,140,248,0.15) !important;
+}
+
+/* ── Tone pills ── */
+.tone-pill {
+  transition: all 0.16s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.tone-pill:hover:not(.active) { transform: translateY(-1px); }
+.tone-pill.active { transform: scale(1.03); }
+
+/* ── Session item ── */
+.session-item {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.session-item:hover:not(.active) { transform: translateX(3px); }
+
+/* ── Note item ── */
+.note-item {
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.note-item:hover:not(.active) { transform: translateX(3px); }
+
+/* ── Chat bubbles entrance ── */
+@keyframes bubbleInLeft {
+  from { opacity: 0; transform: translateX(-12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes bubbleInRight {
+  from { opacity: 0; transform: translateX(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+.chat-bubble-row.ai   { animation: bubbleInLeft  0.24s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.chat-bubble-row.user { animation: bubbleInRight 0.2s  cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Stagger bubbles if many exist */
+.chat-bubble-row:nth-child(2) { animation-delay: 0.02s; }
+.chat-bubble-row:nth-child(3) { animation-delay: 0.04s; }
+
+/* ── Bubble hover subtle glow ── */
+.bubble.ai:hover  { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+.bubble.user:hover{ box-shadow: 0 2px 12px rgba(129,140,248,0.15); }
+
+/* ── Send button pulse when ready ── */
+.send-btn:not(:disabled) {
+  animation: sendReady 2.5s ease-in-out infinite;
+}
+@keyframes sendReady {
+  0%,100% { box-shadow: 0 0 0 0 rgba(129,140,248,0.4); }
+  50%      { box-shadow: 0 0 0 5px rgba(129,140,248,0); }
+}
+.send-btn:hover:not(:disabled) {
+  animation: none;
+  transform: scale(1.1) translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(129,140,248,0.4) !important;
+}
+
+/* ── Mic button ── */
+.mic-btn {
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.mic-btn:hover:not(.listening) { transform: scale(1.1); }
+
+/* ── Input focus glow ── */
+.chat-input-wrap {
+  transition: border-color 0.2s, box-shadow 0.25s !important;
+}
+.chat-input-wrap:focus-within {
+  box-shadow: 0 0 0 3px rgba(129,140,248,0.12), 0 4px 20px rgba(129,140,248,0.08) !important;
+}
+
+textarea:focus, input:focus, .qa-input:focus {
+  box-shadow: 0 0 0 3px rgba(129,140,248,0.12) !important;
+}
+
+/* ── Drop zone hover ── */
+.drop-zone {
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.drop-zone:hover {
+  transform: scale(1.005);
+}
+
+/* ── Scrollbar refined ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb {
+  background: rgba(129,140,248,0.25);
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(129,140,248,0.5); }
+
+/* ── Toast animation ── */
+.toast {
+  animation: toastPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both !important;
+}
+@keyframes toastPop {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Mode buttons (DocAnalyzer) ── */
+.mode-btn {
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.mode-btn:hover:not(:disabled) { transform: translateY(-2px) !important; }
+.mode-btn:active:not(:disabled) { transform: scale(0.97) !important; }
+
+/* ── AI action buttons (SmartNotes) ── */
+.notes-ai-btn {
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.notes-ai-btn:hover:not(:disabled) { transform: translateY(-2px); }
+
+/* ── Summary card hover ── */
+.summary-card {
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+/* ── Loading screen card ── */
+.pb-loading-card {
+  animation: cardRise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+@keyframes cardRise {
+  from { opacity: 0; transform: translateY(32px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Sidebar smooth resize ── */
+.chat-sidebar, .notes-sidebar {
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* ── Logo mark glow ── */
+.pb-logo-mark {
+  transition: box-shadow 0.3s, transform 0.3s !important;
+}
+.pb-logo:hover .pb-logo-mark {
+  transform: scale(1.08) rotate(-3deg);
+  box-shadow: 0 0 24px rgba(129,140,248,0.3);
+}
+
+/* ── Offline banner slide ── */
+.offline-banner {
+  animation: bannerSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* ── Notes AI output panel ── */
+.notes-ai-output {
+  animation: slideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+/* ── Regenerate button ── */
+.regenerate-btn {
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.regenerate-btn:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+}
+
+/* ── Dark/Light toggle ── */
+.pb-dark-toggle {
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+.pb-dark-toggle:hover {
+  transform: translateX(3px);
+}
+
+/* ── Typography refinements ── */
+.chat-empty-title { letter-spacing: -0.5px; }
+.pb-loading-title { letter-spacing: -1px; }
+.notes-title-input { letter-spacing: -0.4px; }
+
+/* ── Subtle text selection color ── */
+::selection {
+  background: rgba(129,140,248,0.25);
+  color: var(--text-primary);
+}
+
+/* ── Focus visible (accessibility) ── */
+:focus-visible {
+  outline: 2px solid rgba(129,140,248,0.6);
+  outline-offset: 2px;
+}
+button:focus-visible { outline: 2px solid rgba(129,140,248,0.6); outline-offset: 2px; }
+
+/* ── Cursor pointer on all interactive ── */
+button, [role="button"] { cursor: pointer; }
+
+/* ════════════════════════════════════════════
+   RESEARCH ANALYZER — focused layout styles
+════════════════════════════════════════════ */
+
+.research-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.research-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  margin-bottom: 4px;
+}
+
+.research-sub {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 480px;
+}
+
+.research-doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.research-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding: 4px 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 100px;
+}
+
+/* Mode selector — clean vertical list */
+.research-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.research-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+  color: var(--text-secondary);
+  text-align: left;
+  width: 100%;
+}
+
+.research-mode-btn:hover {
+  border-color: color-mix(in srgb, var(--mode-accent, var(--accent)) 35%, transparent);
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 6%, transparent);
+  color: var(--text-primary);
+  transform: translateX(3px);
+}
+
+.research-mode-btn.active {
+  border-color: color-mix(in srgb, var(--mode-accent, var(--accent)) 50%, transparent);
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 10%, transparent);
+  color: var(--text-primary);
+}
+
+.research-mode-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-hover);
+  flex-shrink: 0;
+  color: var(--accent);
+}
+
+.research-mode-btn.active .research-mode-icon {
+  background: color-mix(in srgb, var(--mode-accent, var(--accent)) 15%, transparent);
+  color: var(--mode-accent, var(--accent));
+}
+
+.research-mode-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.research-mode-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.research-mode-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.research-qa-wrap {
+  margin-bottom: 16px;
+}
+
+.research-qa-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+/* Logo tagline */
+.pb-logo-tagline {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+  margin-top: 1px;
+  font-family: var(--font-mono);
+}
+
+.pb-logo-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
