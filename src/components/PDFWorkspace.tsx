@@ -67,6 +67,10 @@ export default function PDFWorkspace({ model }: Props) {
   const [messages, setMessages]   = useState<ChatMessage[]>([]);
   const [input, setInput]         = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [quickAsk, setQuickAsk]         = useState('');
+  const [quickAnswer, setQuickAnswer]   = useState('');
+  const [isQuickAsking, setIsQuickAsking] = useState(false);
+  const quickAbortRef = useRef(false);
 
   const fileRef   = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -116,6 +120,20 @@ export default function PDFWorkspace({ model }: Props) {
         setMessages([{ id:'welcome', role:'ai', content:`I've read and understood "${fnRef.current}". Your Brain is ready — ask me anything about it.`, timestamp:Date.now() }]);
       }
     );
+  };
+
+  const runQuickAsk = async () => {
+    if (!quickAsk.trim() || !docText || model.status !== 'ready' || isQuickAsking) return;
+    setIsQuickAsking(true); setQuickAnswer(''); quickAbortRef.current = false;
+    let buf = '';
+    try {
+      const prompt = `Answer this question about the document in 2-3 sentences. Be direct.\n\nDocument:\n${docText.slice(0,2500)}\n\nQuestion: ${quickAsk}\nAnswer:`;
+      for await (const tok of model.generate(prompt, { maxTokens: 150, temperature: 0.3 })) {
+        if (quickAbortRef.current) break;
+        buf += tok; setQuickAnswer(buf);
+      }
+    } catch { setQuickAnswer('Could not answer. Try again.'); }
+    finally { setIsQuickAsking(false); }
   };
 
   const sendMessage = async (text?: string) => {
@@ -304,6 +322,34 @@ export default function PDFWorkspace({ model }: Props) {
                 {summary ? <p className="ws-summary-text">{summary}</p> : <div className="ws-skeleton"><div/><div/><div/></div>}
               </div>
             </div>
+            {/* Quick Ask Bar */}
+            <div className="quick-ask-bar">
+              <div className="quick-ask-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </div>
+              <input
+                className="quick-ask-input"
+                placeholder="Quick question about this document…"
+                value={quickAsk}
+                onChange={e => setQuickAsk(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && runQuickAsk()}
+              />
+              <button className="quick-ask-btn" onClick={runQuickAsk} disabled={!quickAsk.trim() || isQuickAsking || model.status !== 'ready'}>
+                {isQuickAsking ? <span className="spinner" style={{width:12,height:12}}/> : 'Ask →'}
+              </button>
+            </div>
+
+            {/* Quick answer */}
+            {(quickAnswer || isQuickAsking) && (
+              <div className="quick-ask-result">
+                <div className="quick-ask-result-label">Brain's Answer</div>
+                <div>
+                  {quickAnswer || ''}
+                  {isQuickAsking && <span className="typing-cursor"/>}
+                </div>
+              </div>
+            )}
+
             <button className="ws-goto-btn" onClick={()=>setActiveTab('chat')}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               Ask your Brain about this →

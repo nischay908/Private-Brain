@@ -1233,3 +1233,391 @@ textarea, input { font-family: var(--font-body); }
   .ws-tab-group .ws-tab { padding:6px 10px; font-size:12px; }
   .ws-doc-name { max-width:120px; }
 }
+/* ═══════════════════════════════════════════════════════════
+   LAYOUT FIX + LIVE ANIMATIONS + THIRD FEATURE
+   Paste at the VERY BOTTOM of index.css
+═══════════════════════════════════════════════════════════ */
+
+/* ── 1. FIX GLOBAL OVERFLOW — allow scrolling everywhere ── */
+html, body, #root {
+  height: 100% !important;
+  overflow: auto !important;
+  min-height: 100vh;
+}
+
+.pb-root {
+  min-height: 100vh !important;
+  height: auto !important;
+  overflow: visible !important;
+  flex-wrap: wrap;
+}
+
+/* Main wrapper takes remaining space and scrolls */
+.pb-main-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto !important;
+  min-height: 100vh;
+}
+
+.pb-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto !important;
+}
+
+.tab-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: auto !important;
+  min-height: 0;
+}
+
+/* Sidebar scrolls internally */
+.pb-sidebar {
+  overflow-y: auto !important;
+  overflow-x: hidden;
+  max-height: 100vh;
+  position: sticky !important;
+  top: 0;
+  height: 100vh;
+}
+
+/* ── 2. BETTER SCROLLBARS — visible and styled ── */
+::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.03) !important;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(108,142,245,0.35) !important;
+  border-radius: 6px !important;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(108,142,245,0.6) !important;
+}
+
+/* All panels that need scrolling */
+.ws-hero,
+.ws-panel,
+.ws-messages,
+.ws-chat-panel,
+.notes-list,
+.notes-editor-area,
+.session-list,
+.ws-workspace,
+.ws-content {
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}
+
+.ws-workspace {
+  min-height: 0;
+  flex: 1;
+}
+
+.ws-content {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── 3. FIX CHAT PANEL HEIGHT ── */
+.ws-chat-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.ws-messages {
+  flex: 1;
+  min-height: 200px;
+  max-height: none !important;
+}
+
+/* Fix input bar staying at bottom */
+.ws-input-bar {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* ── 4. RESPONSIVE — prevent zoom-out needed ── */
+@media (max-width: 1024px) {
+  .pb-sidebar { width: 220px; }
+}
+
+@media (max-width: 768px) {
+  .pb-root { flex-direction: column; }
+  .pb-sidebar {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    position: relative !important;
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 12px;
+    gap: 8px;
+  }
+  .pb-nav { flex-direction: row; overflow-x: auto; }
+  .pb-nav-item { flex-shrink: 0; }
+  .pb-logo { padding-bottom: 8px; border-bottom: none; }
+  .ws-hero-features { grid-template-columns: 1fr; }
+  .ws-suggestions-grid { grid-template-columns: 1fr; }
+  .ws-tab-group { overflow-x: auto; }
+}
+
+/* ══════════════════════════════════════════════════
+   5. LIVE ANIMATIONS — neural pulse background
+══════════════════════════════════════════════════ */
+
+/* Animated grid lines in background */
+.pb-root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(108,142,245,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(108,142,245,0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+  animation: gridShift 20s linear infinite;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+}
+@keyframes gridShift {
+  from { background-position: 0 0; }
+  to   { background-position: 60px 60px; }
+}
+
+/* Floating neural nodes */
+.neural-node {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── 6. LIVE STATUS INDICATOR — pulsing ring on brain ── */
+.pb-logo-mark {
+  animation: brandPulse 4s ease-in-out infinite !important;
+}
+@keyframes brandPulse {
+  0%,100% { box-shadow: 0 0 20px rgba(108,142,245,0.18), inset 0 1px 0 rgba(255,255,255,0.08); }
+  50%      { box-shadow: 0 0 36px rgba(108,142,245,0.35), 0 0 60px rgba(56,189,248,0.1), inset 0 1px 0 rgba(255,255,255,0.12); }
+}
+
+/* ── 7. HERO TITLE — animated gradient ── */
+.ws-hero-grad {
+  background: linear-gradient(135deg, #6C8EF5 0%, #38BDF8 33%, #34D399 66%, #6C8EF5 100%) !important;
+  background-size: 200% 200% !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  animation: gradientShift 4s ease-in-out infinite !important;
+  filter: none !important;
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── 8. DROP ZONE — breathing animation when idle ── */
+.ws-drop:not(:hover):not(.over) {
+  animation: dropBreathe 4s ease-in-out infinite;
+}
+@keyframes dropBreathe {
+  0%,100% { border-color: rgba(108,142,245,0.22); box-shadow: 0 0 0 0 rgba(108,142,245,0); }
+  50%      { border-color: rgba(108,142,245,0.38); box-shadow: 0 0 30px rgba(108,142,245,0.07); }
+}
+
+/* ── 9. ACTIVE NAV — glowing indicator ── */
+.pb-nav-active-bar {
+  box-shadow: -4px 0 18px rgba(108,142,245,0.5), -1px 0 8px rgba(56,189,248,0.3) !important;
+  animation: navBarGlow 2s ease-in-out infinite !important;
+}
+@keyframes navBarGlow {
+  0%,100% { box-shadow: -4px 0 18px rgba(108,142,245,0.4); }
+  50%      { box-shadow: -4px 0 28px rgba(108,142,245,0.7), -2px 0 16px rgba(56,189,248,0.4); }
+}
+
+/* ── 10. SEND BUTTON — ready state pulse ── */
+.ws-send-btn:not(:disabled) {
+  animation: sendReady 3s ease-in-out infinite;
+}
+@keyframes sendReady {
+  0%,100% { box-shadow: 0 4px 16px rgba(108,142,245,0.3); }
+  50%      { box-shadow: 0 4px 28px rgba(108,142,245,0.55), 0 0 0 4px rgba(108,142,245,0.08); }
+}
+.ws-send-btn:hover:not(:disabled) {
+  animation: none !important;
+  box-shadow: 0 8px 32px rgba(108,142,245,0.55) !important;
+}
+
+/* ── 11. RESULT CARDS — stagger entrance ── */
+.ws-result-card:nth-child(1) { animation-delay: 0s; }
+.ws-result-card:nth-child(2) { animation-delay: 0.1s; }
+
+/* ── 12. AI BUBBLE — subtle shimmer while generating ── */
+.ws-bubble.ai.generating {
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(108,142,245,0.05) 50%, rgba(255,255,255,0.04) 100%);
+  background-size: 200% 100%;
+  animation: bubbleShimmer 2s ease-in-out infinite;
+}
+@keyframes bubbleShimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ── 13. TYPING CURSOR — glowing ── */
+.typing-cursor {
+  box-shadow: 0 0 10px rgba(56,189,248,0.7), 0 0 20px rgba(56,189,248,0.3) !important;
+}
+
+/* ── 14. PROGRESS BAR — glow ── */
+.ws-progress-fill, .pb-progress-fill {
+  box-shadow: 0 0 16px rgba(108,142,245,0.4), 0 0 32px rgba(56,189,248,0.2) !important;
+}
+
+/* ── 15. FEATURE CARDS — stagger ── */
+.ws-hero-feature:nth-child(1) { animation-delay: 0.25s; }
+.ws-hero-feature:nth-child(2) { animation-delay: 0.33s; }
+.ws-hero-feature:nth-child(3) { animation-delay: 0.41s; }
+
+/* ── 16. CONTEXT BADGE — live indicator ── */
+.ws-context-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent3);
+  margin-right: 6px;
+  animation: privDot 1.8s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+/* ══════════════════════════════════════════════════
+   17. THIRD FEATURE — Quick Ask Bar
+   A pinned question bar visible on the insights panel
+══════════════════════════════════════════════════ */
+.quick-ask-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: rgba(108,142,245,0.04);
+  border: 1px solid rgba(108,142,245,0.18);
+  border-radius: 16px;
+  animation: cardEnter 0.3s var(--ease-out) 0.2s both;
+  opacity: 0;
+  transition: all 0.2s;
+}
+.quick-ask-bar:hover {
+  background: rgba(108,142,245,0.08);
+  border-color: rgba(108,142,245,0.32);
+  box-shadow: 0 0 24px rgba(108,142,245,0.08);
+}
+.quick-ask-bar:focus-within {
+  border-color: rgba(108,142,245,0.5);
+  box-shadow: 0 0 0 3px rgba(108,142,245,0.1), 0 8px 32px rgba(108,142,245,0.08);
+}
+
+.quick-ask-icon {
+  width: 32px; height: 32px;
+  border-radius: 9px;
+  background: rgba(108,142,245,0.12);
+  border: 1px solid rgba(108,142,245,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent); flex-shrink: 0;
+}
+
+.quick-ask-input {
+  flex: 1;
+  background: transparent;
+  border: none; outline: none;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: var(--font-body);
+}
+.quick-ask-input::placeholder { color: var(--text-muted); }
+
+.quick-ask-btn {
+  padding: 7px 16px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6C8EF5, #38BDF8);
+  color: white; border: none; cursor: pointer;
+  font-size: 12.5px; font-weight: 600;
+  transition: all 0.18s var(--ease-spring);
+  box-shadow: 0 3px 12px rgba(108,142,245,0.3);
+  flex-shrink: 0;
+  font-family: var(--font-body);
+}
+.quick-ask-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108,142,245,0.45);
+}
+.quick-ask-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Quick ask result */
+.quick-ask-result {
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  animation: cardEnter 0.3s var(--ease-out) both;
+  position: relative;
+}
+.quick-ask-result-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.quick-ask-result-label::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: privDot 1.5s ease-in-out infinite;
+}
+
+/* ── 18. SMOOTH SCROLLING everywhere ── */
+* { scroll-behavior: smooth; }
+
+/* ── 19. PANEL tabs active line ── */
+.ws-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -3px; left: 20%; right: 20%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius: 2px;
+  animation: tabLine 2s ease-in-out infinite;
+}
+@keyframes tabLine {
+  0%,100% { opacity: 0.7; }
+  50%      { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+}
+
+/* ── 20. SUMMARY CARD — coloured left border ── */
+.ws-summary-card { border-left: 3px solid rgba(108,142,245,0.5) !important; }
+.ws-kp-card { border-left: 3px solid rgba(56,189,248,0.5) !important; }
