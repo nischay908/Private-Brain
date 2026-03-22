@@ -13,31 +13,23 @@ function useOnline() {
 }
 
 export default function OfflineBanner() {
-  const isOnline = useOnline();
+  const isOnline  = useOnline();
   const [dismissed, setDismissed] = useState(false);
-
   if (dismissed) return null;
-
   return (
-    <div className={`privacy-banner ${isOnline ? 'online' : 'offline-mode'}`}>
+    <div className={`privacy-banner banner-enter ${isOnline ? 'online' : 'offline-mode'}`}>
       <div className="privacy-banner-left">
         <span className={`privacy-dot ${isOnline ? 'green' : 'amber'}`} />
         <div className="privacy-banner-text">
           {isOnline ? (
-            <>
-              <strong>Running 100% Private AI locally</strong>
-              <span> — your documents and queries never leave this device, even when online</span>
-            </>
+            <><strong>Your Brain runs 100% on this device</strong><span> — documents and conversations never touch a server, even when online</span></>
           ) : (
-            <>
-              <strong>✈️ Full Offline Mode Active</strong>
-              <span> — no internet needed · all AI runs on your device · complete privacy guaranteed</span>
-            </>
+            <><strong>✈️ Full Offline Mode — Your Brain is self-contained</strong><span> — no internet needed · complete privacy · works anywhere</span></>
           )}
         </div>
       </div>
       <div className="privacy-banner-right">
-        <span className="privacy-tech-badge">WebGPU · On-Device</span>
+        <span className="privacy-tech-badge">WebGPU · On-Device AI</span>
         <button className="privacy-dismiss" onClick={() => setDismissed(true)}>✕</button>
       </div>
     </div>

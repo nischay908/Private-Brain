@@ -4501,3 +4501,573 @@ button, [role="button"] { cursor: pointer; }
   .ws-tab-group .ws-tab { padding:6px 9px; font-size:12px; }
   .ws-doc-name { max-width:120px; }
 }
+/* ═══════════════════════════════════════════════════════════
+   PRIVATEBRAIN — FINAL POLISH
+   Paste at BOTTOM of index.css
+   Particles, animated orbs, tab transitions, PWA badge
+═══════════════════════════════════════════════════════════ */
+
+/* ── Tab page wrapper ── */
+.tab-page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* ── Animated gradient orbs ── */
+.orbs-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+
+.orb-1 {
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(129,140,248,0.09) 0%, transparent 70%);
+  top: -200px; left: -100px;
+}
+
+.orb-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(34,211,238,0.07) 0%, transparent 70%);
+  bottom: -150px; right: -100px;
+}
+
+.orb-3 {
+  width: 400px; height: 400px;
+  background: radial-gradient(circle, rgba(52,211,153,0.05) 0%, transparent 70%);
+  top: 40%; left: 40%;
+  transform: translate(-50%, -50%);
+}
+
+/* ── Floating particles ── */
+.particles-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(129, 140, 248, 0.6);
+}
+
+/* ── PWA / offline badge ── */
+.pwa-badge {
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 100px;
+  background: rgba(52,211,153,0.12);
+  border: 1px solid rgba(52,211,153,0.25);
+  color: var(--accent3);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+}
+
+/* ── Tab indicator (layoutId) ── */
+.ws-tab { position: relative; }
+.ws-tab-indicator {
+  position: absolute;
+  bottom: -3px;
+  left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* ── Logo tagline fix ── */
+.pb-logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  font-family: 'Syne', sans-serif;
+}
+.pb-logo-text strong { color: var(--accent); }
+.pb-logo-tagline {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+  margin-top: 1px;
+}
+
+/* ── Ensure z-index stacking works ── */
+.pb-root { position: relative; z-index: 1; }
+.pb-sidebar { position: relative; z-index: 2; }
+.pb-main-wrapper { position: relative; z-index: 1; }
+
+/* ── Framer Motion hover improvements ── */
+.pb-nav-item { will-change: transform; }
+.ws-drop    { will-change: transform; }
+.ws-goto-btn{ will-change: transform; }
+.ws-kp-item { will-change: transform; }
+
+/* ── Message meta visible on touch ── */
+@media (hover: none) {
+  .ws-msg-meta { opacity: 1 !important; }
+  .msg-actions  { opacity: 1 !important; }
+}
+
+/* ── Smooth all transitions ── */
+* { -webkit-tap-highlight-color: transparent; }
+/* ═══════════════════════════════════════════════════════════
+   HERO SECTION V2 + TEXT REFINEMENTS
+   Paste at BOTTOM of index.css
+═══════════════════════════════════════════════════════════ */
+
+/* ── Hero overhaul ── */
+.ws-hero {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px 60px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.ws-hero-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 28px;
+  max-width: 620px;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* Badge */
+.ws-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  border-radius: 100px;
+  border: 1px solid rgba(52,211,153,0.3);
+  background: rgba(52,211,153,0.07);
+  color: var(--accent3);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+}
+
+.ws-hero-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--accent3);
+  box-shadow: 0 0 8px rgba(52,211,153,0.6);
+}
+
+/* Title */
+.ws-hero-title {
+  font-size: clamp(40px, 7.5vw, 72px);
+  font-weight: 800;
+  letter-spacing: -3px;
+  line-height: 1.0;
+  color: var(--text-primary);
+  font-family: 'Syne', var(--font-body), sans-serif;
+}
+
+.ws-hero-grad {
+  background: linear-gradient(135deg, #818CF8 0%, #22D3EE 50%, #34D399 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: inline-block;
+}
+
+/* Subtitle — richer layout */
+.ws-hero-sub {
+  font-size: 16px;
+  color: var(--text-secondary);
+  line-height: 1.75;
+  max-width: 500px;
+}
+
+/* Feature trio — horizontal cards */
+.ws-hero-features {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin: -4px 0;
+}
+
+.ws-hero-feature {
+  padding: 16px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  cursor: default;
+  transition: all 0.2s;
+}
+
+.ws-hero-feature:hover {
+  border-color: rgba(129,140,248,0.3);
+  background: rgba(129,140,248,0.05);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+
+.ws-hero-feature-icon {
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.ws-hero-feature-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.2px;
+}
+
+.ws-hero-feature-desc {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Upload drop zone — premium version */
+.ws-drop {
+  width: 100%;
+  padding: 48px 32px 40px;
+  border-radius: 24px;
+  border: 1.5px dashed rgba(129,140,248,0.3);
+  background: rgba(129,140,248,0.03);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Inner shimmer line on drop zone */
+.ws-drop::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(129,140,248,0.04), transparent);
+  animation: dropShimmer 4s linear infinite;
+  pointer-events: none;
+}
+@keyframes dropShimmer {
+  from { left: -100%; }
+  to   { left: 200%; }
+}
+
+.ws-drop-icon {
+  width: 76px; height: 76px;
+  border-radius: 22px;
+  background: rgba(129,140,248,0.1);
+  border: 1px solid rgba(129,140,248,0.2);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--accent);
+  position: relative; z-index: 1;
+}
+
+.ws-drop-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.4px;
+  position: relative; z-index: 1;
+}
+
+.ws-drop-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  position: relative; z-index: 1;
+}
+
+.ws-drop-warn {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--font-mono);
+  position: relative; z-index: 1;
+}
+
+/* Pills */
+.ws-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ws-pill {
+  padding: 7px 16px;
+  border-radius: 100px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+/* Error */
+.ws-error {
+  width: 100%;
+  padding: 11px 18px;
+  border-radius: 11px;
+  text-align: center;
+  background: rgba(248,113,113,0.08);
+  border: 1px solid rgba(248,113,113,0.25);
+  color: var(--danger);
+  font-size: 13.5px;
+}
+
+/* ── Chat input hint ── */
+.ws-input-hint {
+  margin-top: 8px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  padding-left: 2px;
+  letter-spacing: 0.2px;
+}
+
+/* ── Context badge ── */
+.ws-context-badge {
+  margin-left: auto;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.22);
+  color: var(--accent3);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  letter-spacing: 0.3px;
+}
+
+/* ── Insight cards improved ── */
+.ws-result-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  flex: 1;
+  letter-spacing: -0.2px;
+}
+
+.ws-summary-text {
+  font-size: 15.5px;
+  line-height: 1.82;
+  color: var(--text-primary);
+  letter-spacing: 0.1px;
+}
+
+.ws-kp-text {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-primary);
+}
+
+/* ── Goto button ── */
+.ws-goto-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px dashed rgba(129,140,248,0.28);
+  background: rgba(129,140,248,0.04);
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  letter-spacing: -0.2px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .ws-hero-features { grid-template-columns: 1fr; }
+  .ws-hero-title { letter-spacing: -2px; }
+  .ws-tab-group .ws-tab { padding: 6px 9px; font-size: 12px; }
+}
+/* ═══════════════════════════════════════════════════════════
+   CSS-ONLY ANIMATIONS — replaces framer-motion entirely
+   Paste at BOTTOM of index.css
+═══════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95) translateY(16px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tipFade {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Entry classes ── */
+.hero-enter        { animation: fadeUp   0.55s cubic-bezier(0.16,1,0.3,1) both; }
+.status-enter      { animation: scaleIn  0.35s cubic-bezier(0.16,1,0.3,1) both; }
+.loading-card-enter{ animation: scaleIn  0.6s  cubic-bezier(0.16,1,0.3,1) both; }
+.sidebar-enter     { animation: slideRight 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+.panel-enter       { animation: fadeUp   0.22s cubic-bezier(0.16,1,0.3,1) both; }
+.workspace-enter   { animation: fadeIn   0.25s ease both; }
+.banner-enter      { animation: fadeUp   0.35s cubic-bezier(0.16,1,0.3,1) both; }
+.tab-enter         { animation: fadeUp   0.2s  cubic-bezier(0.16,1,0.3,1) both; }
+
+/* ── Feature cards stagger ── */
+.ws-hero-feature {
+  animation: fadeUp 0.45s cubic-bezier(0.16,1,0.3,1) both;
+  opacity: 0;
+}
+/* filled by inline animationDelay */
+
+/* ── KP items stagger ── */
+.kp-item-enter {
+  animation: slideRight 0.3s cubic-bezier(0.16,1,0.3,1) both;
+  opacity: 0;
+}
+
+/* ── Message enter ── */
+.msg-enter {
+  animation: fadeUp 0.22s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Tip fade ── */
+.tip-visible { animation: tipFade 0.3s ease both; opacity: 1; }
+.tip-hidden  { opacity: 0; transition: opacity 0.2s; }
+
+/* ── Loading chips stagger ── */
+.pb-loading-chip {
+  animation: fadeUp 0.4s cubic-bezier(0.16,1,0.3,1) both;
+  opacity: 0;
+}
+
+/* ── Hover effects (CSS-only, replaces whileHover) ── */
+.pb-nav-item { transition: transform 0.16s ease, background 0.16s, color 0.16s; }
+.pb-nav-item:hover:not(.active) { transform: translateX(4px); }
+
+.ws-drop { transition: transform 0.2s ease, border-color 0.2s, background 0.2s, box-shadow 0.2s; }
+.ws-drop:hover { transform: scale(1.01); }
+.ws-drop.over  { transform: scale(1.015); }
+
+.ws-hero-feature { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s, border-color 0.2s; }
+.ws-hero-feature:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 10px 28px rgba(0,0,0,0.18); }
+
+.ws-goto-btn { transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.ws-goto-btn:hover { transform: translateY(-3px) scale(1.01); box-shadow: 0 10px 28px rgba(129,140,248,0.15); }
+
+.ws-suggestion { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), background 0.18s, border-color 0.18s; }
+.ws-suggestion:hover:not(:disabled) { transform: translateY(-3px) scale(1.02); }
+
+.ws-send-btn { transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s; }
+.ws-send-btn:hover:not(:disabled) { transform: scale(1.1); box-shadow: 0 4px 16px rgba(129,140,248,0.35); }
+
+.ws-tab { transition: background 0.15s, color 0.15s, transform 0.15s; }
+.ws-tab:hover { transform: scale(1.03); }
+
+.ws-reset-btn { transition: background 0.15s, color 0.15s, transform 0.15s; }
+.ws-reset-btn:hover { transform: scale(1.04); }
+
+.copy-btn { transition: background 0.15s, border-color 0.15s, transform 0.15s; }
+.copy-btn:hover { transform: scale(1.05); }
+
+.pb-logo { transition: transform 0.2s; }
+.pb-logo:hover { transform: scale(1.02); }
+
+.demo-trigger-btn { transition: transform 0.18s ease, background 0.18s, border-color 0.18s; }
+.demo-trigger-btn:hover { transform: translateX(2px) scale(1.02); }
+
+.pb-dark-toggle { transition: transform 0.18s ease, background 0.18s; }
+.pb-dark-toggle:hover { transform: translateX(3px); }
+
+.ws-kp-item { transition: transform 0.15s ease; }
+.ws-kp-item:hover { transform: translateX(4px); }
+
+.ws-pill { transition: transform 0.18s ease, border-color 0.18s, color 0.18s; }
+.ws-pill:hover { transform: translateY(-2px); border-color: rgba(129,140,248,0.35); color: var(--text-primary); }
+
+/* ── Orbs CSS animation (replaces framer-motion) ── */
+.orb-1 { animation: orb1Move 22s ease-in-out infinite; }
+.orb-2 { animation: orb2Move 28s ease-in-out infinite; }
+.orb-3 { animation: orb3Move 34s ease-in-out infinite; }
+
+@keyframes orb1Move {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(60px,-40px) scale(1.15); }
+  66%      { transform: translate(-30px,60px) scale(0.9); }
+}
+@keyframes orb2Move {
+  0%,100% { transform: translate(0,0) scale(1); }
+  33%      { transform: translate(-50px,50px) scale(0.9); }
+  66%      { transform: translate(40px,-30px) scale(1.1); }
+}
+@keyframes orb3Move {
+  0%,100% { transform: translate(-50%,-50%) scale(1); }
+  33%      { transform: translate(calc(-50% + 30px),calc(-50% - 60px)) scale(1.2); }
+  66%      { transform: translate(calc(-50% - 60px),calc(-50% + 20px)) scale(0.85); }
+}
+
+/* ── Brain pulse on loading screen ── */
+.pb-loading-brain {
+  animation: brainPulse 2.5s ease-in-out infinite;
+  position: relative; z-index: 1;
+}
+@keyframes brainPulse {
+  0%,100% { transform: scale(1); }
+  50%      { transform: scale(1.08); }
+}
+
+/* ── Privacy dot pulse ── */
+.privacy-dot { animation: privDot 2.2s ease-in-out infinite; }
+@keyframes privDot {
+  0%,100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.5; }
+}
+.orbs-bg { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.orb { position:absolute; border-radius:50%; filter:blur(100px); }
+.orb-1 { width:600px; height:600px; background:radial-gradient(circle, rgba(129,140,248,0.09), transparent 70%); top:-200px; left:-100px; animation:orb1Move 22s ease-in-out infinite; }
+.orb-2 { width:500px; height:500px; background:radial-gradient(circle, rgba(34,211,238,0.07), transparent 70%); bottom:-150px; right:-100px; animation:orb2Move 28s ease-in-out infinite; }
+.orb-3 { width:400px; height:400px; background:radial-gradient(circle, rgba(52,211,153,0.05), transparent 70%); top:40%; left:40%; transform:translate(-50%,-50%); animation:orb3Move 34s ease-in-out infinite; }

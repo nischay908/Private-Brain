@@ -9,48 +9,36 @@ interface Props {
   darkMode: boolean;
   onToggleDark: () => void;
   model: ModelState;
+  pwaReady?: boolean;
 }
 
 const NAV: { id: Tab; label: string; sub: string; icon: React.ReactNode }[] = [
   {
-    id: 'pdf',
-    label: 'PDF Research',
-    sub: 'Upload · Analyze · Chat',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-        <polyline points="14 2 14 8 20 8"/>
-        <line x1="16" y1="13" x2="8" y2="13"/>
-        <line x1="16" y1="17" x2="8" y2="17"/>
-      </svg>
-    ),
+    id: 'pdf', label: 'Knowledge Base', sub: 'Upload · Analyze · Ask',
+    icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
   },
   {
-    id: 'notes',
-    label: 'Smart Notes',
-    sub: 'Capture & summarize',
-    icon: (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-        <path d="M12 20h9"/>
-        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-      </svg>
-    ),
+    id: 'notes', label: 'Brain Notes', sub: 'Capture · Summarize · Tag',
+    icon: <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>,
   },
 ];
 
-const STATUS_COLOR: Record<string, string> = {
-  ready: '#10B981', error: '#EF4444',
-  downloading: '#F59E0B', loading: '#F59E0B',
-  initializing: '#F59E0B', idle: '#6B7280',
+const STATUS: Record<string, { color: string; label: string }> = {
+  ready:        { color: '#10B981', label: '🔒 Brain ready · On-device' },
+  error:        { color: '#EF4444', label: 'Brain unavailable' },
+  downloading:  { color: '#F59E0B', label: 'Loading your Brain…' },
+  loading:      { color: '#F59E0B', label: 'Waking up your Brain…' },
+  initializing: { color: '#F59E0B', label: 'Starting up…' },
+  idle:         { color: '#6B7280', label: 'Standby…' },
 };
 
-export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark, model }: Props) {
+export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark, model, pwaReady }: Props) {
   const [showDemo, setShowDemo] = useState(false);
+  const status = STATUS[model.status] ?? STATUS.idle;
 
   return (
     <>
-      <aside className="pb-sidebar">
-
+      <aside className="pb-sidebar sidebar-enter">
         {/* Brand */}
         <div className="pb-logo">
           <div className="pb-logo-mark">
@@ -59,30 +47,28 @@ export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark
               <path d="M8 12h8M12 8v8" stroke="url(#pbg)" strokeWidth="2" strokeLinecap="round"/>
               <defs>
                 <linearGradient id="pbg" x1="0" y1="0" x2="24" y2="24">
-                  <stop offset="0%" stopColor="#818CF8"/>
-                  <stop offset="100%" stopColor="#22D3EE"/>
+                  <stop offset="0%" stopColor="#818CF8"/><stop offset="100%" stopColor="#22D3EE"/>
                 </linearGradient>
               </defs>
             </svg>
           </div>
           <div>
             <div className="pb-logo-text">Private<strong>Brain</strong></div>
-            <div className="pb-logo-tagline">Private AI Research</div>
+            <div className="pb-logo-tagline">Knowledge · Private · Local</div>
           </div>
         </div>
 
-        {/* Model pill */}
+        {/* Model status */}
         <div className="pb-model-pill">
-          <span className="pb-model-dot" style={{ background: STATUS_COLOR[model.status] ?? '#6B7280' }} />
-          <span className="pb-model-label">
-            {model.status === 'ready' ? '🔒 On-device · Llama 3.2' : model.progressLabel || 'Loading AI…'}
-          </span>
+          <span className="pb-model-dot" style={{ background: status.color }} />
+          <span className="pb-model-label">{status.label}</span>
+          {pwaReady && model.status === 'ready' && <span className="pwa-badge">✈️ Offline</span>}
         </div>
 
         {/* Nav */}
         <nav className="pb-nav">
           <span className="pb-nav-section">Tools</span>
-          {NAV.map(item => (
+          {NAV.map((item) => (
             <button
               key={item.id}
               className={`pb-nav-item ${activeTab === item.id ? 'active' : ''}`}
@@ -100,20 +86,22 @@ export default function Sidebar({ activeTab, onTabChange, darkMode, onToggleDark
 
         <div style={{ flex: 1 }} />
 
+        {/* Demo */}
         <div style={{ padding: '0 0 10px' }}>
           <button className="demo-trigger-btn" onClick={() => setShowDemo(true)}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Demo Mode
-            <span style={{ marginLeft: 'auto', fontSize: 10, opacity: 0.6 }}>Hackathon</span>
+            Live Demo
+            <span style={{ marginLeft:'auto', fontSize:10, opacity:0.6 }}>Hackathon</span>
           </button>
         </div>
 
+        {/* Bottom */}
         <div className="pb-sidebar-bottom">
           <div className="pb-privacy-badge">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
               <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
-            Zero Cloud · Your data stays here
+            Your knowledge never leaves this device
           </div>
           <button className="pb-dark-toggle" onClick={onToggleDark}>
             {darkMode ? (
