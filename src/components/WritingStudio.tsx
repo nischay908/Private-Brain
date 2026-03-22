@@ -112,7 +112,7 @@ export default function WritingStudio({ model }: Props) {
   const outputWords = output.trim() ? output.trim().split(/\s+/).length : 0;
 
   return (
-    <>
+    <div className="pb-tab-content">
       {/* ── Quick Examples (when no input) ── */}
       {!input && !output && (
         <div className="card" style={{ borderColor: 'rgba(139,92,246,0.2)' }}>
@@ -245,6 +245,7 @@ export default function WritingStudio({ model }: Props) {
       )}
 
       {showToast && <div className="toast">✅ Copied to clipboard!</div>}
-    </>
+      <div className="pb-tab-footer">Powered by WebLLM · Llama 3.2 1B · WebGPU · 100% Private</div>
+    </div>
   );
 }

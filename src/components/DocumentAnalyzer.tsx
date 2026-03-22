@@ -1,307 +1,323 @@
 import React, { useState, useRef, useCallback } from 'react';
 import type { ModelState } from '../hooks/useModelLoader';
-
-// @ts-ignore
 import * as mammoth from 'mammoth';
+import * as pdfjsLib from 'pdfjs-dist';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 interface Props { model: ModelState; }
 
-const ANALYSIS_MODES = [
-  { id: 'summary',   icon: '📋', label: 'Summarize',    desc: 'Concise summary',       color: 'rgba(139,92,246,0.15)', border: 'rgba(139,92,246,0.4)' },
-  { id: 'keypoints', icon: '🎯', label: 'Key Points',   desc: 'Extract main ideas',    color: 'rgba(6,182,212,0.12)',  border: 'rgba(6,182,212,0.4)'  },
-  { id: 'simplify',  icon: '🔍', label: 'Simplify',     desc: 'Plain language',        color: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.4)' },
-  { id: 'critique',  icon: '🧐', label: 'Critique',     desc: 'Strengths & weaknesses',color: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.4)' },
-  { id: 'questions', icon: '❓', label: 'Generate Q&A', desc: 'Study questions',        color: 'rgba(239,68,68,0.12)',  border: 'rgba(239,68,68,0.4)'  },
-  { id: 'formal',    icon: '🎓', label: 'Make Formal',  desc: 'Academic version',      color: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.4)' },
+// ── Analysis modes ──
+const MODES = [
+  { id: 'summary',   icon: '📋', label: 'Summarize',   desc: 'Concise overview',       accent: '#818CF8' },
+  { id: 'keypoints', icon: '🎯', label: 'Key Points',  desc: 'Extract main ideas',     accent: '#22D3EE' },
+  { id: 'qa',        icon: '❓', label: 'Q&A Mode',    desc: 'Ask anything about it',  accent: '#F59E0B' },
+  { id: 'simplify',  icon: '🔍', label: 'Simplify',    desc: 'Plain language',         accent: '#34D399' },
+  { id: 'critique',  icon: '🧐', label: 'Critique',    desc: 'Strengths & weaknesses', accent: '#F87171' },
+  { id: 'formal',    icon: '🎓', label: 'Make Formal', desc: 'Academic rewrite',       accent: '#A78BFA' },
 ];
 
-function buildPrompt(mode: string, text: string): string {
-  const map: Record<string, string> = {
-    summary:   `Summarize this text in 3-4 clear sentences:\n\n${text}`,
-    keypoints: `List the 5 most important key points from this text as a numbered list:\n\n${text}`,
-    simplify:  `Rewrite this in very simple plain language anyone can understand:\n\n${text}`,
-    critique:  `Analyze this text. Give 3 strengths and 3 areas to improve:\n\n${text}`,
-    questions: `Write 5 study questions based on this text:\n\n${text}`,
-    formal:    `Rewrite this in formal academic language:\n\n${text}`,
+function buildPrompt(mode: string, text: string, question?: string): string {
+  const chunk = text.slice(0, 3500); // keep within token budget
+  const base: Record<string, string> = {
+    summary:   `Summarize the following document in 3-5 clear sentences:\n\n${chunk}`,
+    keypoints: `List the 5-7 most important key points from this document as a numbered list:\n\n${chunk}`,
+    qa:        `You are a document assistant. Answer this question based only on the document below.\n\nQuestion: ${question ?? 'What is this document about?'}\n\nDocument:\n${chunk}`,
+    simplify:  `Rewrite this document in very simple plain language a 10-year-old can understand:\n\n${chunk}`,
+    critique:  `Analyze this document critically. List 3 strengths and 3 weaknesses:\n\n${chunk}`,
+    formal:    `Rewrite this document in formal academic language:\n\n${chunk}`,
   };
-  return map[mode] ?? map.summary;
+  return base[mode] ?? base.summary;
 }
 
-type FileStatus = 'idle' | 'reading' | 'ready' | 'error';
+async function extractText(file: File): Promise<string> {
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
 
+  if (ext === 'txt' || ext === 'md') return await file.text();
+
+  if (ext === 'pdf') {
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    let out = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page    = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      out += content.items.map((item: unknown) => (item as { str?: string }).str ?? '').join(' ') + '\n';
+    }
+    return out.trim();
+  }
+
+  if (ext === 'docx') {
+    const buf    = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    return result.value.trim();
+  }
+
+  throw new Error(`Unsupported file type ".${ext}". Use PDF, DOCX, TXT or MD.`);
+}
+
+// ── Copy button ──
+function CopyBtn({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button className="msg-action-btn" onClick={async () => {
+      await navigator.clipboard.writeText(text);
+      setCopied(true); setTimeout(() => setCopied(false), 2000);
+    }}>
+      {copied ? '✅ Copied' : '📋 Copy'}
+    </button>
+  );
+}
+
+// ─────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────
 export default function DocumentAnalyzer({ model }: Props) {
-  const [docText, setDocText] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileStatus, setFileStatus] = useState<FileStatus>('idle');
-  const [fileError, setFileError] = useState('');
-  const [output, setOutput] = useState('');
-  const [activeMode, setActiveMode] = useState('summary');
+  const [docText, setDocText]           = useState('');
+  const [fileName, setFileName]         = useState<string | null>(null);
+  const [fileError, setFileError]       = useState<string | null>(null);
+  const [isLoadingFile, setIsLoadingFile] = useState(false);
+  const [dragOver, setDragOver]         = useState(false);
+
+  const [activeMode, setActiveMode]     = useState('summary');
+  const [qaQuestion, setQaQuestion]     = useState('');
+
+  const [output, setOutput]             = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [showToast, setShowToast] = useState('');
-  const [isDragOver, setIsDragOver] = useState(false);
-  const abortRef = useRef(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [toast, setToast]               = useState('');
+  const abortRef  = useRef(false);
+  const fileRef   = useRef<HTMLInputElement>(null);
+  const bufferRef = useRef('');
+  const rafRef    = useRef<number>(0);
 
-  const wordCount  = docText.trim() ? docText.trim().split(/\s+/).length : 0;
+  const wordCount  = docText.trim().split(/\s+/).filter(Boolean).length;
   const readTime   = Math.max(1, Math.round(wordCount / 200));
-  const paraCount  = docText.split(/\n\n+/).filter(Boolean).length || 0;
-  const outputWords = output.trim() ? output.trim().split(/\s+/).length : 0;
-  const activeModeCfg = ANALYSIS_MODES.find(m => m.id === activeMode)!;
+  const charCount  = docText.length;
+  const paraCount  = docText.split(/\n\n+/).filter(Boolean).length;
 
-  // ── File Reading ──────────────────────────────────────────
-  const readFile = useCallback(async (file: File) => {
-    setFileStatus('reading');
-    setFileError('');
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(''), 2000); };
+
+  // ── File handling ──
+  const handleFile = useCallback(async (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['pdf','docx','txt','md'].includes(ext ?? '')) {
+      setFileError('Unsupported file. Please upload a PDF, DOCX, TXT or MD.'); return;
+    }
+    setFileError(null);
+    setIsLoadingFile(true);
     setFileName(file.name);
     setOutput('');
-
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase();
-
-      if (ext === 'txt' || ext === 'md') {
-        const text = await file.text();
-        setDocText(text);
-        setFileStatus('ready');
-
-      } else if (ext === 'pdf') {
-        // Dynamic import of pdf.js to avoid SSR issues
-        const pdfjsLib = await import('pdfjs-dist');
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items.map((item: any) => item.str).join(' ');
-          fullText += pageText + '\n\n';
-        }
-        setDocText(fullText.trim());
-        setFileStatus('ready');
-
-      } else if (ext === 'docx') {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        setDocText(result.value.trim());
-        setFileStatus('ready');
-
-      } else {
-        throw new Error(`Unsupported file type: .${ext}. Use PDF, DOCX, TXT, or MD.`);
-      }
-    } catch (e: any) {
-      console.error('File read error:', e);
-      setFileError(e?.message ?? 'Failed to read file');
-      setFileStatus('error');
-      setFileName('');
+      const text = await extractText(file);
+      if (!text.trim()) throw new Error('No readable text found in this file.');
+      setDocText(text);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Failed to read file.';
+      setFileError(msg);
+      setFileName(null);
+    } finally {
+      setIsLoadingFile(false);
     }
   }, []);
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) readFile(file);
-    e.target.value = '';
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault(); setDragOver(false);
+    const f = e.dataTransfer.files[0]; if (f) handleFile(f);
   };
 
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const file = e.dataTransfer.files[0];
-    if (file) readFile(file);
-  };
-
-  const clearAll = () => {
-    setDocText(''); setOutput(''); setFileName('');
-    setFileStatus('idle'); setFileError('');
-  };
-
-  // ── Analysis ──────────────────────────────────────────────
+  // ── Analyze ──
   const analyze = async () => {
     if (!docText.trim() || model.status !== 'ready' || isGenerating) return;
     setIsGenerating(true);
     setOutput('');
-    abortRef.current = false;
+    abortRef.current  = false;
+    bufferRef.current = '';
+    cancelAnimationFrame(rafRef.current);
+
     try {
-      let out = '';
-      // Use first 3000 words to stay within token limits
-      const trimmedText = docText.split(/\s+/).slice(0, 3000).join(' ');
-      const prompt = buildPrompt(activeMode, trimmedText);
-      for await (const tok of model.generate(prompt, { maxTokens: 600, temperature: 0.5 })) {
+      const prompt = buildPrompt(activeMode, docText, qaQuestion || undefined);
+      for await (const tok of model.generate(prompt, { maxTokens: 600, temperature: 0.45 })) {
         if (abortRef.current) break;
-        out += tok;
-        setOutput(out);
+        bufferRef.current += tok;
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => setOutput(bufferRef.current));
       }
-    } catch (e) {
-      setOutput('Error during analysis. Please try again.');
+      cancelAnimationFrame(rafRef.current);
+      setOutput(bufferRef.current);
+    } catch {
+      setOutput('⚠️ Analysis failed. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const copyOutput = () => {
-    if (!output) return;
-    navigator.clipboard.writeText(output).then(() => {
-      setShowToast('✅ Copied!');
-      setTimeout(() => setShowToast(''), 2000);
-    });
-  };
+  const clearAll = () => { setDocText(''); setOutput(''); setFileName(null); setFileError(null); setQaQuestion(''); };
+
+  const modeCfg = MODES.find(m => m.id === activeMode)!;
+  const outputWords = output.trim().split(/\s+/).filter(Boolean).length;
 
   return (
-    <>
-      {/* Stats Row */}
+    <div className="pb-tab-content">
+
+      {/* ── Stats bar ── */}
       {docText.trim() && (
-        <div className="stats-row">
+        <div className="doc-stats-row">
           {[
-            { label: 'Words', value: wordCount.toLocaleString(), sub: 'in document' },
-            { label: 'Read Time', value: `${readTime}m`, sub: 'estimate' },
-            { label: 'Paragraphs', value: paraCount, sub: 'blocks' },
-            { label: 'Characters', value: docText.length.toLocaleString(), sub: 'total' },
+            { l: 'Words',      v: wordCount.toLocaleString() },
+            { l: 'Read Time',  v: `${readTime} min` },
+            { l: 'Paragraphs', v: paraCount },
+            { l: 'Characters', v: charCount.toLocaleString() },
           ].map(s => (
-            <div key={s.label} className="stat-card">
-              <div className="stat-card-label">{s.label}</div>
-              <div className="stat-card-value">{s.value}</div>
-              <div className="stat-card-sub">{s.sub}</div>
+            <div key={s.l} className="summary-card">
+              <div className="summary-card-label">{s.l}</div>
+              <div className="summary-card-value">{s.v}</div>
             </div>
           ))}
         </div>
       )}
 
-      {/* Upload Zone */}
+      {/* ── Upload card ── */}
       <div className="card">
         <div className="card-header">
-          <span className="card-title">📄 Document Input</span>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--accent3)', fontWeight: 600 }}>🔒 Never leaves your device</span>
-            {(docText || fileName) && <button className="btn btn-secondary btn-sm" onClick={clearAll}>🗑 Clear</button>}
+          <span className="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Document Input
+          </span>
+          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+            <span style={{ fontSize:11, color:'var(--accent3)', fontFamily:'var(--font-mono)' }}>🔒 Never leaves your device</span>
+            {docText && <button className="btn btn-secondary btn-sm" onClick={clearAll}>🗑 Clear</button>}
           </div>
         </div>
         <div className="card-body">
-          {/* Drag & Drop Zone */}
+          {/* Drop zone */}
           <div
-            className={`drop-zone ${isDragOver ? 'drag-over' : ''} ${fileStatus === 'ready' && fileName ? 'has-file' : ''}`}
-            onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
-            onDragLeave={() => setIsDragOver(false)}
-            onDrop={handleDrop}
-            onClick={() => fileInputRef.current?.click()}
+            className={`drop-zone ${dragOver ? 'drag-over' : ''} ${isLoadingFile ? 'loading' : ''}`}
+            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            onClick={() => fileRef.current?.click()}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.docx,.txt,.md"
-              style={{ display: 'none' }}
-              onChange={handleFileInput}
-            />
-            {fileStatus === 'reading' ? (
+            <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md" style={{ display:'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value=''; }} />
+            {isLoadingFile ? (
               <div className="drop-zone-content">
-                <span className="spinner" style={{ width: 24, height: 24 }} />
-                <span>Reading {fileName}…</span>
+                <span className="spinner" style={{ width:26, height:26 }} />
+                <span style={{ color:'var(--text-muted)', fontSize:13 }}>Reading file…</span>
               </div>
-            ) : fileStatus === 'ready' && fileName ? (
-              <div className="drop-zone-content file-loaded">
-                <span style={{ fontSize: 28 }}>✅</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{fileName}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{wordCount.toLocaleString()} words extracted · Click to replace</div>
-                </div>
-              </div>
-            ) : fileStatus === 'error' ? (
-              <div className="drop-zone-content error">
-                <span style={{ fontSize: 28 }}>❌</span>
-                <div style={{ color: 'var(--error, #ef4444)' }}>{fileError}</div>
+            ) : fileName ? (
+              <div className="drop-zone-content">
+                <span style={{ fontSize:30 }}>✅</span>
+                <span className="drop-zone-filename">{fileName}</span>
+                <span style={{ fontSize:11, color:'var(--text-muted)' }}>Click to replace</span>
               </div>
             ) : (
               <div className="drop-zone-content">
-                <span style={{ fontSize: 36 }}>📁</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>Drop a file or click to browse</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Supports PDF · DOCX · TXT · MD</div>
-                </div>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ color:'var(--accent)', opacity:0.7 }}>
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                </svg>
+                <span className="drop-zone-title">Drop your file here or click to browse</span>
+                <span className="drop-zone-sub">PDF · DOCX · TXT · MD</span>
               </div>
             )}
           </div>
 
-          {/* Divider */}
+          {fileError && <div className="file-error">⚠️ {fileError}</div>}
+
           <div className="or-divider"><span>or paste text directly</span></div>
 
           <textarea
             rows={6}
-            placeholder="Paste any text here — articles, essays, reports, emails, research papers…"
+            placeholder="Paste any document content here — articles, reports, essays, meeting notes…"
             value={docText}
-            onChange={e => { setDocText(e.target.value); if (e.target.value && fileName) setFileName(''); }}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}
+            onChange={e => { setDocText(e.target.value); setFileName(null); }}
+            style={{ fontFamily:'var(--font-mono)', fontSize:13 }}
           />
         </div>
       </div>
 
-      {/* Mode Selector */}
+      {/* ── Mode selector ── */}
       <div className="card">
         <div className="card-header">
           <span className="card-title">🔬 Analysis Mode</span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            Selected: <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{activeModeCfg.label}</span>
+          <span style={{ fontSize:12, color:'var(--text-muted)' }}>
+            Selected: <span style={{ color: modeCfg.accent, fontWeight:700 }}>{modeCfg.label}</span>
           </span>
         </div>
         <div className="card-body">
           <div className="mode-grid">
-            {ANALYSIS_MODES.map(m => (
+            {MODES.map(m => (
               <button
                 key={m.id}
+                className={`mode-btn ${activeMode === m.id ? 'active' : ''}`}
+                style={{ '--mode-accent': m.accent } as React.CSSProperties}
                 onClick={() => setActiveMode(m.id)}
-                className="mode-btn"
-                style={{
-                  border: `1px solid ${activeMode === m.id ? m.border : 'rgba(255,255,255,0.07)'}`,
-                  background: activeMode === m.id ? m.color : 'rgba(255,255,255,0.025)',
-                }}
               >
-                <span style={{ fontSize: 20 }}>{m.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 700 }}>{m.label}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{m.desc}</span>
+                <span className="mode-icon">{m.icon}</span>
+                <span className="mode-label">{m.label}</span>
+                <span className="mode-desc">{m.desc}</span>
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+
+          {/* Q&A input — only shown in qa mode */}
+          {activeMode === 'qa' && (
+            <div className="qa-input-wrap">
+              <input
+                type="text"
+                className="qa-input"
+                placeholder="Ask a question about the document…"
+                value={qaQuestion}
+                onChange={e => setQaQuestion(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && analyze()}
+              />
+            </div>
+          )}
+
+          <div className="toolbar">
             <button
               className="btn btn-primary"
               onClick={analyze}
-              disabled={model.status !== 'ready' || isGenerating || !docText.trim()}
+              disabled={model.status !== 'ready' || isGenerating || !docText.trim() || (activeMode === 'qa' && !qaQuestion.trim())}
             >
-              {isGenerating ? <><span className="spinner" />Analyzing…</> : <>{activeModeCfg.icon} {activeModeCfg.label}</>}
+              {isGenerating ? <><span className="spinner" /> Analyzing…</> : <>{modeCfg.icon} {modeCfg.label}</>}
             </button>
             {isGenerating && (
               <button className="btn btn-secondary" onClick={() => { abortRef.current = true; }}>⏹ Stop</button>
             )}
           </div>
+
           {!docText.trim() && (
-            <p style={{ marginTop: 10, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-              ↑ Upload a file or paste text above, then choose an analysis mode
+            <p style={{ marginTop:10, fontSize:12, color:'var(--text-muted)', fontStyle:'italic' }}>
+              ↑ Upload a file or paste text above first
             </p>
           )}
         </div>
       </div>
 
-      {/* Output */}
+      {/* ── Output ── */}
       {(output || isGenerating) && (
-        <div className="card" style={{ borderColor: activeModeCfg.border }}>
+        <div className="card result-card" style={{ borderColor: modeCfg.accent + '55' }}>
           <div className="card-header">
-            <span className="card-title" style={{ color: 'var(--accent2)' }}>
-              {activeModeCfg.icon} {activeModeCfg.label} Result
-              {isGenerating && <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 8 }}>generating…</span>}
+            <span className="card-title" style={{ color: modeCfg.accent }}>
+              {modeCfg.icon} {modeCfg.label} Result
+              {isGenerating && <span style={{ fontSize:11, color:'var(--text-muted)', fontWeight:400, marginLeft:8 }}>— generating…</span>}
             </span>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              {output && <div className="stat-chip">Words: <span>{outputWords}</span></div>}
-              <button className="btn btn-secondary btn-sm" onClick={copyOutput} disabled={!output}>📋 Copy</button>
+            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+              {output && <span className="stat-chip">{outputWords} words</span>}
+              {output && <CopyBtn text={output} />}
             </div>
           </div>
           <div className="card-body">
             <div className="output-text">
-              {output || ''}
+              {output}
               {isGenerating && <span className="typing-cursor" />}
             </div>
           </div>
         </div>
       )}
 
-      {showToast && <div className="toast">{showToast}</div>}
-    </>
+      <div className="pb-tab-footer">Powered by WebLLM · Llama 3.2 1B · WebGPU · 100% Private</div>
+      {toast && <div className="toast">{toast}</div>}
+    </div>
   );
 }

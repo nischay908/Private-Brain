@@ -1,78 +1,65 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
-interface LoadingScreenProps {
-  progress: number;
-  label: string;
-  status: string;
-}
+interface Props { progress: number; label: string; status: string; }
 
-export default function LoadingScreen({ progress, label, status }: LoadingScreenProps) {
+const TIPS = [
+  'Your data never leaves this device.',
+  'No internet required once loaded.',
+  'WebGPU powers blazing fast inference.',
+  'All AI runs 100% in your browser.',
+];
+
+export default function LoadingScreen({ progress, label }: Props) {
+  const [tip, setTip] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setTip(v => (v + 1) % TIPS.length), 2800);
+    return () => clearInterval(t);
+  }, []);
+
   return (
-    <div className="loading-screen">
-      <div className="loading-content">
-        {/* Animated Logo */}
-        <div className="loading-logo">
-          <div className="logo-icon-large">🧠</div>
-          <div className="loading-rings">
-            <div className="ring ring-1"></div>
-            <div className="ring ring-2"></div>
-            <div className="ring ring-3"></div>
+    <div className="pb-loading">
+      {/* Ambient blobs */}
+      <div className="pb-loading-blob pb-blob-1" />
+      <div className="pb-loading-blob pb-blob-2" />
+
+      <div className="pb-loading-card">
+        {/* Animated logo */}
+        <div className="pb-loading-logo">
+          <div className="pb-loading-rings">
+            <div className="pb-ring pb-ring-1" />
+            <div className="pb-ring pb-ring-2" />
+            <div className="pb-ring pb-ring-3" />
           </div>
+          <div className="pb-loading-brain">🧠</div>
         </div>
 
-        {/* Brand */}
-        <h1 className="loading-title">
-          Private<span className="gradient-text">Brain</span>
-        </h1>
-        <p className="loading-subtitle">Privacy-First AI Assistant</p>
+        <h1 className="pb-loading-title">Private<strong>Brain</strong></h1>
+        <p className="pb-loading-subtitle">Loading on-device AI model…</p>
 
-        {/* Progress Bar */}
-        <div className="loading-progress-container">
-          <div className="loading-progress-bar">
-            <div 
-              className="loading-progress-fill" 
-              style={{ width: `${progress}%` }}
-            >
-              <div className="progress-shimmer"></div>
-            </div>
-          </div>
-          <div className="loading-percentage">{progress}%</div>
-        </div>
-
-        {/* Status Text */}
-        <div className="loading-status">
-          <div className="status-dot"></div>
-          <span>{label}</span>
-        </div>
-
-        {/* Feature Pills */}
-        <div className="loading-features">
-          <div className="feature-pill">
-            <span className="feature-icon">🔒</span>
-            <span>100% Private</span>
-          </div>
-          <div className="feature-pill">
-            <span className="feature-icon">⚡</span>
-            <span>Lightning Fast</span>
-          </div>
-          <div className="feature-pill">
-            <span className="feature-icon">✈️</span>
-            <span>Works Offline</span>
+        {/* Progress bar */}
+        <div className="pb-progress-track">
+          <div className="pb-progress-fill" style={{ width: `${Math.max(4, progress)}%` }}>
+            <div className="pb-progress-shimmer" />
           </div>
         </div>
+        <div className="pb-progress-row">
+          <span className="pb-progress-label">{label || 'Initializing…'}</span>
+          <span className="pb-progress-pct">{progress}%</span>
+        </div>
 
-        {/* Particles Background */}
-        <div className="particles">
-          {[...Array(20)].map((_, i) => (
-            <div 
-              key={i} 
-              className="particle"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${3 + Math.random() * 4}s`
-              }}
-            ></div>
+        {/* Rotating tip */}
+        <div className="pb-loading-tip">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <span key={tip} className="pb-tip-text">{TIPS[tip]}</span>
+        </div>
+
+        {/* Feature chips */}
+        <div className="pb-loading-chips">
+          {['🔒 Private','⚡ Fast','✈️ Offline','💸 Free'].map(c => (
+            <span key={c} className="pb-loading-chip">{c}</span>
           ))}
         </div>
       </div>

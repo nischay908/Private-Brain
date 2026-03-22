@@ -112,7 +112,7 @@ export default function CodeExplainer({ model }: Props) {
   const activeModeCfg = EXPLAIN_MODES.find(m => m.id === activeMode)!;
 
   return (
-    <>
+    <div className="pb-tab-content">
       {/* Example Snippets */}
       {!code && (
         <div className="card" style={{ borderColor: 'rgba(16,185,129,0.2)' }}>
@@ -257,6 +257,7 @@ export default function CodeExplainer({ model }: Props) {
       )}
 
       {showToast && <div className="toast">✅ Copied to clipboard!</div>}
-    </>
+      <div className="pb-tab-footer">Powered by WebLLM · Llama 3.2 1B · WebGPU · 100% Private</div>
+    </div>
   );
 }
