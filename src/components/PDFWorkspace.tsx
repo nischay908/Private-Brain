@@ -1,25 +1,13 @@
-/**
- * PDFWorkspace — The MAIN experience of PrivateBrain
- *
- * Flow:
- *  1. Hero upload screen (first impression)
- *  2. Auto-generates summary + key points immediately on upload
- *  3. Chat panel opens — every message has the PDF as context
- *
- * Everything runs 100% in-browser. Zero network calls.
- */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ModelState } from '../hooks/useModelLoader';
-import { useStreamingAI, buildSummaryPrompt, buildKeyPointsPrompt, buildQAPrompt } from '../hooks/useAI';
+import { useStreamingAI, buildSummaryPrompt, buildKeyPointsPrompt } from '../hooks/useAI';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 
+// ── Use local bundled worker (offline-safe) ──
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 
-// ─────────────────────────────────────────────
-// TYPES
-// ─────────────────────────────────────────────
 interface Props { model: ModelState; }
 
 interface ChatMessage {
@@ -29,17 +17,17 @@ interface ChatMessage {
   timestamp: number;
 }
 
-type WorkspacePhase = 'hero' | 'loading-file' | 'auto-analyzing' | 'ready';
+type Phase = 'hero' | 'reading' | 'analyzing' | 'ready';
 
-// ─────────────────────────────────────────────
-// FILE EXTRACTION
-// ─────────────────────────────────────────────
+// ── File text extraction ──
 async function extractText(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'txt' || ext === 'md') return await file.text();
   if (ext === 'pdf') {
     const buf = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const loadTask = pdfjsLib.getDocument({ data: buf });
+    loadTask.onPassword = () => { throw new Error('PDF is password-protected. Remove the password first.'); };
+    const pdf = await loadTask.promise;
     let out = '';
     for (let i = 1; i <= pdf.numPages; i++) {
       const page    = await pdf.getPage(i);
@@ -49,187 +37,174 @@ async function extractText(file: File): Promise<string> {
     return out.trim();
   }
   if (ext === 'docx') {
-    const buf    = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: buf });
+    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
     return result.value.trim();
   }
   throw new Error(`Unsupported file ".${ext}". Upload PDF, DOCX, TXT or MD.`);
 }
 
-// ─────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────
-function fmtTime(ts: number): string {
+function fmtTime(ts: number) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function buildDocChatPrompt(docText: string, history: ChatMessage[], question: string): string {
-  const ctx = history.slice(-6)
-    .map(m => `${m.role === 'user' ? 'Researcher' : 'Assistant'}: ${m.content}`)
-    .join('\n');
-  return `You are PrivateBrain, a private AI research assistant. The researcher has uploaded a document. Answer questions about it accurately using only the document content. Be concise and cite relevant parts.\n\nDOCUMENT:\n${docText.slice(0, 3000)}\n\n${ctx}\nResearcher: ${question}\nAssistant:`;
+function buildDocPrompt(docText: string, history: ChatMessage[], q: string): string {
+  const ctx = history.slice(-6).map(m => `${m.role === 'user' ? 'User' : 'AI'}: ${m.content}`).join('\n');
+  return `You are a helpful research assistant. The user has uploaded a document. Answer their question accurately and concisely using ONLY the document content below. Keep your answer focused.\n\nDOCUMENT:\n${docText.slice(0, 3000)}\n\n${ctx}\nUser: ${q}\nAI:`;
 }
 
-// Copy button
+// ── Copy button ──
 function CopyBtn({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [done, setDone] = useState(false);
   return (
-    <button className="msg-action-btn" onClick={async () => {
+    <button className="copy-btn" onClick={async () => {
       await navigator.clipboard.writeText(text);
-      setCopied(true); setTimeout(() => setCopied(false), 2000);
+      setDone(true); setTimeout(() => setDone(false), 2000);
     }}>
-      {copied
-        ? <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg> Copied</>
-        : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</>
-      }
+      {done ? '✓ Copied' : 'Copy'}
     </button>
   );
 }
 
-// ─────────────────────────────────────────────
-// MAIN COMPONENT
-// ─────────────────────────────────────────────
 export default function PDFWorkspace({ model }: Props) {
-  const [phase, setPhase]           = useState<WorkspacePhase>('hero');
-  const [docText, setDocText]       = useState('');
-  const [fileName, setFileName]     = useState('');
-  const [fileError, setFileError]   = useState('');
-  const [dragOver, setDragOver]     = useState(false);
+  const [phase, setPhase]         = useState<Phase>('hero');
+  const [docText, setDocText]     = useState('');
+  const [fileName, setFileName]   = useState('');
+  const [fileError, setFileError] = useState('');
+  const [dragOver, setDragOver]   = useState(false);
+  const [analyzeStep, setAnalyzeStep] = useState<'summary'|'keypoints'|'done'>('summary');
+  const [analyzeProgress, setAnalyzeProgress] = useState(0);
 
-  // Auto-analysis results
-  const [summary, setSummary]       = useState('');
-  const [keyPoints, setKeyPoints]   = useState('');
-  const [autoStep, setAutoStep]     = useState<'summary'|'keypoints'|'done'>('summary');
+  const [summary, setSummary]     = useState('');
+  const [keyPoints, setKeyPoints] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'summary'|'keypoints'|'chat'>('summary');
 
-  // Chat state
-  const [messages, setMessages]     = useState<ChatMessage[]>([]);
-  const [input, setInput]           = useState('');
+  const [messages, setMessages]       = useState<ChatMessage[]>([]);
+  const [input, setInput]             = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // UI panels
-  const [showInsights, setShowInsights] = useState(true);
-  const [activePanel, setActivePanel]   = useState<'insights'|'chat'>('insights');
+  const fileRef     = useRef<HTMLInputElement>(null);
+  const bottomRef   = useRef<HTMLDivElement>(null);
+  const inputRef    = useRef<HTMLTextAreaElement>(null);
+  const abortRef    = useRef(false);
+  const bufRef      = useRef('');
+  const rafRef      = useRef<number>(0);
+  const { run }     = useStreamingAI(model);
 
-  const fileRef    = useRef<HTMLInputElement>(null);
-  const bottomRef  = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const abortRef   = useRef(false);
-  const bufferRef  = useRef('');
-  const rafRef     = useRef<number>(0);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
 
-  const { run } = useStreamingAI(model);
-
+  // Animate progress bar during analysis
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length, isGenerating]);
+    if (phase !== 'analyzing') return;
+    setAnalyzeProgress(0);
+    const target = analyzeStep === 'summary' ? 45 : 90;
+    const timer = setInterval(() => {
+      setAnalyzeProgress(p => {
+        if (p >= target) { clearInterval(timer); return p; }
+        return p + 1;
+      });
+    }, 80);
+    return () => clearInterval(timer);
+  }, [analyzeStep, phase]);
 
-  // ── FILE UPLOAD ──
   const handleFile = useCallback(async (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
     if (!['pdf','docx','txt','md'].includes(ext ?? '')) {
       setFileError('Please upload a PDF, DOCX, TXT or MD file.'); return;
     }
     setFileError('');
-    setPhase('loading-file');
+    setPhase('reading');
     setFileName(file.name);
-
     try {
       const text = await extractText(file);
-      if (!text.trim()) throw new Error('No readable text found in this file.');
+      if (!text.trim()) throw new Error('No readable text found.');
       setDocText(text);
-      // Immediately start auto-analysis
-      startAutoAnalysis(text);
+      runAutoAnalysis(text);
     } catch (e: unknown) {
       setFileError(e instanceof Error ? e.message : 'Failed to read file.');
       setPhase('hero');
     }
   }, []); // eslint-disable-line
 
-  // ── AUTO-ANALYSIS — runs immediately on upload ──
-  const startAutoAnalysis = async (text: string) => {
-    if (model.status !== 'ready') return;
-    setPhase('auto-analyzing');
-    setSummary('');
-    setKeyPoints('');
-    setAutoStep('summary');
+  const runAutoAnalysis = async (text: string) => {
+    if (model.status !== 'ready') {
+      setFileError('AI model not ready yet. Please wait and try again.'); return;
+    }
+    setPhase('analyzing');
+    setSummary(''); setKeyPoints([]); setMessages([]);
 
-    // Step 1: Summary
-    let sum = '';
+    // Step 1: Summary (short, fast)
+    setAnalyzeStep('summary');
+    let sumText = '';
     await run(
       buildSummaryPrompt(text),
-      { maxTokens: 200, temperature: 0.3 },
-      (t) => { sum = t; setSummary(t); },
+      { maxTokens: 150, temperature: 0.2 }, // lower = faster
+      t => { sumText = t; setSummary(t); },
     );
 
-    // Step 2: Key points
-    setAutoStep('keypoints');
+    // Step 2: Key points (short list)
+    setAnalyzeStep('keypoints');
+    let kpRaw = '';
     await run(
       buildKeyPointsPrompt(text),
-      { maxTokens: 250, temperature: 0.3 },
-      (t) => setKeyPoints(t),
+      { maxTokens: 180, temperature: 0.2 },
+      t => { kpRaw = t; },
       () => {
-        setAutoStep('done');
+        const lines = kpRaw.split('\n').filter(l => l.trim()).map(l => l.replace(/^\d+\.\s*/, '').trim()).filter(Boolean);
+        setKeyPoints(lines);
+        setAnalyzeStep('done');
+        setAnalyzeProgress(100);
         setPhase('ready');
-        setActivePanel('insights');
-        // Welcome message in chat
+        setActiveTab('summary');
         setMessages([{
-          id: 'welcome',
-          role: 'ai',
-          content: `I've analyzed **${file_name_ref}**. Here's what I found — you can read the insights, or start asking me questions about the document directly.`,
+          id: 'welcome', role: 'ai',
+          content: `I've read "${fileName || file_ref.current}". Ask me anything about it — I'll answer using only this document.`,
           timestamp: Date.now(),
         }]);
       }
     );
   };
 
-  // Hack: capture filename for welcome message
-  const file_name_ref = fileName;
+  // Capture filename for welcome msg
+  const file_ref = useRef('');
+  useEffect(() => { file_ref.current = fileName; }, [fileName]);
 
-  // ── CHAT ──
   const sendMessage = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || model.status !== 'ready' || isGenerating || !docText) return;
-
     setInput('');
     abortRef.current = false;
-
     const userMsg: ChatMessage = { id: `u_${Date.now()}`, role: 'user', content: msg, timestamp: Date.now() };
-    const aiId = `a_${Date.now() + 1}`;
+    const aiId = `a_${Date.now()+1}`;
     const aiMsg: ChatMessage   = { id: aiId, role: 'ai', content: '', timestamp: Date.now() };
-
-    setMessages(prev => [...prev, userMsg, aiMsg]);
-    setActivePanel('chat');
+    setMessages(p => [...p, userMsg, aiMsg]);
+    setActiveTab('chat');
     setIsGenerating(true);
-
-    bufferRef.current = '';
+    bufRef.current = '';
     cancelAnimationFrame(rafRef.current);
-
     try {
-      const prompt = buildDocChatPrompt(docText, [...messages, userMsg], msg);
-      for await (const tok of model.generate(prompt, { maxTokens: 400, temperature: 0.6 })) {
+      const prompt = buildDocPrompt(docText, [...messages, userMsg], msg);
+      for await (const tok of model.generate(prompt, { maxTokens: 350, temperature: 0.5 })) {
         if (abortRef.current) break;
-        bufferRef.current += tok;
+        bufRef.current += tok;
         cancelAnimationFrame(rafRef.current);
-        rafRef.current = requestAnimationFrame(() => {
-          setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: bufferRef.current } : m));
-        });
+        rafRef.current = requestAnimationFrame(() =>
+          setMessages(p => p.map(m => m.id === aiId ? { ...m, content: bufRef.current } : m))
+        );
       }
       cancelAnimationFrame(rafRef.current);
-      setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: bufferRef.current } : m));
+      setMessages(p => p.map(m => m.id === aiId ? { ...m, content: bufRef.current } : m));
     } catch {
-      setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: '⚠️ Something went wrong. Try again.' } : m));
-    } finally {
-      setIsGenerating(false);
-    }
+      setMessages(p => p.map(m => m.id === aiId ? { ...m, content: '⚠️ Error. Please try again.' } : m));
+    } finally { setIsGenerating(false); }
   };
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
-  const resetWorkspace = () => {
+  const reset = () => {
     setPhase('hero'); setDocText(''); setFileName(''); setSummary('');
-    setKeyPoints(''); setMessages([]); setFileError(''); setInput('');
+    setKeyPoints([]); setMessages([]); setFileError(''); setInput('');
   };
 
   const onDrop = (e: React.DragEvent) => {
@@ -238,287 +213,238 @@ export default function PDFWorkspace({ model }: Props) {
   };
 
   const wordCount = docText.trim().split(/\s+/).filter(Boolean).length;
+  const userMsgs  = messages.filter(m => m.role === 'user').length;
 
-  // ─────────────────────────────────────────────
-  // PHASE 1: HERO UPLOAD SCREEN
-  // ─────────────────────────────────────────────
-  if (phase === 'hero') {
-    return (
-      <div className="workspace-hero">
-        {/* Ambient glow */}
-        <div className="workspace-glow-1" />
-        <div className="workspace-glow-2" />
-
-        <div className="workspace-hero-content">
-          {/* Hero text */}
-          <div className="workspace-hero-badge">
-            <span className="workspace-hero-dot" />
-            Running 100% locally — no data leaves your device
-          </div>
-
-          <h1 className="workspace-hero-title">
-            Your Private<br />
-            <span className="workspace-hero-gradient">AI Brain</span>
-          </h1>
-
-          <p className="workspace-hero-sub">
-            Analyze documents, extract insights, and chat with your research.
-            Powered by on-device AI — zero cloud, zero tracking, zero compromise.
-          </p>
-
-          {/* Upload zone — center of the page */}
-          <div
-            className={`workspace-upload-zone ${dragOver ? 'drag-over' : ''}`}
-            onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={onDrop}
-            onClick={() => fileRef.current?.click()}
-          >
-            <input
-              ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }}
-            />
-            <div className="workspace-upload-icon">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="17 8 12 3 7 8"/>
-                <line x1="12" y1="3" x2="12" y2="15"/>
-              </svg>
-            </div>
-            <div className="workspace-upload-text">
-              <span className="workspace-upload-title">Upload a PDF to start</span>
-              <span className="workspace-upload-sub">or drag & drop here · PDF · DOCX · TXT · MD</span>
-            </div>
-            {model.status !== 'ready' && (
-              <div className="workspace-upload-warning">
-                <span className="spinner" style={{ width: 12, height: 12 }} />
-                AI model loading… upload will start analysis automatically
-              </div>
-            )}
-          </div>
-
-          {fileError && <div className="workspace-error">⚠️ {fileError}</div>}
-
-          {/* Feature pills */}
-          <div className="workspace-features">
-            <span className="workspace-feature-pill">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              Auto-summary on upload
-            </span>
-            <span className="workspace-feature-pill">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-              Chat with your document
-            </span>
-            <span className="workspace-feature-pill">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              100% private · stays on-device
-            </span>
-          </div>
+  // ── HERO ──────────────────────────────────────────────
+  if (phase === 'hero') return (
+    <div className="ws-hero">
+      <div className="ws-glow ws-glow-1" /><div className="ws-glow ws-glow-2" />
+      <div className="ws-hero-inner">
+        <div className="ws-hero-badge">
+          <span className="ws-hero-dot" />
+          Running 100% locally — no data leaves your device
         </div>
-      </div>
-    );
-  }
+        <h1 className="ws-hero-title">Your Private<br /><span className="ws-hero-grad">AI Brain</span></h1>
+        <p className="ws-hero-sub">Upload a document and instantly get a summary, key points, and a private AI chat — all on your device.</p>
 
-  // ─────────────────────────────────────────────
-  // PHASE 2: LOADING FILE
-  // ─────────────────────────────────────────────
-  if (phase === 'loading-file') {
-    return (
-      <div className="workspace-loading">
-        <div className="workspace-loading-card">
-          <span className="spinner" style={{ width: 36, height: 36, borderWidth: 3 }} />
-          <div className="workspace-loading-title">Reading document…</div>
-          <div className="workspace-loading-sub">{fileName}</div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // PHASE 3: AUTO-ANALYZING
-  // ─────────────────────────────────────────────
-  if (phase === 'auto-analyzing') {
-    return (
-      <div className="workspace-loading">
-        <div className="workspace-loading-card">
-          <div className="workspace-analyze-rings">
-            <div className="wa-ring wa-ring-1" />
-            <div className="wa-ring wa-ring-2" />
-            <span style={{ fontSize: 24 }}>🧠</span>
+        <div
+          className={`ws-drop ${dragOver ? 'over' : ''}`}
+          onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={onDrop}
+          onClick={() => fileRef.current?.click()}
+        >
+          <input ref={fileRef} type="file" accept=".pdf,.docx,.txt,.md" style={{ display:'none' }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value=''; }} />
+          <div className="ws-drop-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
           </div>
-          <div className="workspace-loading-title">Analyzing your document…</div>
-          <div className="workspace-loading-sub">{fileName} · {wordCount.toLocaleString()} words</div>
-
-          <div className="workspace-auto-steps">
-            <div className={`workspace-auto-step ${autoStep === 'summary' ? 'active' : autoStep === 'keypoints' || autoStep === 'done' ? 'done' : ''}`}>
-              {(autoStep === 'keypoints' || autoStep === 'done') ? '✓' : autoStep === 'summary' ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '○'}
-              Generating summary
-            </div>
-            <div className={`workspace-auto-step ${autoStep === 'keypoints' ? 'active' : autoStep === 'done' ? 'done' : ''}`}>
-              {autoStep === 'done' ? '✓' : autoStep === 'keypoints' ? <span className="spinner" style={{ width: 12, height: 12 }} /> : '○'}
-              Extracting key points
-            </div>
-          </div>
-
-          {summary && (
-            <div className="workspace-preview">
-              <div className="workspace-preview-label">Preview:</div>
-              <div className="workspace-preview-text">{summary.slice(0, 120)}…</div>
-            </div>
+          <span className="ws-drop-title">Upload a PDF to start</span>
+          <span className="ws-drop-sub">or drag & drop · PDF · DOCX · TXT · MD</span>
+          {model.status !== 'ready' && (
+            <span className="ws-drop-warn"><span className="spinner" style={{width:11,height:11}} /> AI loading — you can upload now, analysis will start when ready</span>
           )}
         </div>
+
+        {fileError && <div className="ws-error">⚠️ {fileError}</div>}
+
+        <div className="ws-pills">
+          <span className="ws-pill">⚡ Instant summary</span>
+          <span className="ws-pill">🎯 Key points</span>
+          <span className="ws-pill">💬 Chat with doc</span>
+          <span className="ws-pill">🔒 100% private</span>
+        </div>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // ─────────────────────────────────────────────
-  // PHASE 4: READY — INSIGHTS + CHAT
-  // ─────────────────────────────────────────────
+  // ── READING FILE ──────────────────────────────────────
+  if (phase === 'reading') return (
+    <div className="ws-center">
+      <div className="ws-status-card">
+        <span className="spinner" style={{ width:40, height:40, borderWidth:3 }} />
+        <div className="ws-status-title">Reading your document…</div>
+        <div className="ws-status-sub">{fileName}</div>
+      </div>
+    </div>
+  );
+
+  // ── ANALYZING ─────────────────────────────────────────
+  if (phase === 'analyzing') return (
+    <div className="ws-center">
+      <div className="ws-status-card ws-analyzing-card">
+        <div className="ws-brain-rings">
+          <div className="ws-ring ws-r1" /><div className="ws-ring ws-r2" />
+          <span style={{ fontSize:28, position:'relative', zIndex:2 }}>🧠</span>
+        </div>
+        <div className="ws-status-title">Analyzing with on-device AI…</div>
+        <div className="ws-status-sub">{fileName} · {wordCount.toLocaleString()} words</div>
+
+        {/* Progress bar */}
+        <div className="ws-progress-track">
+          <div className="ws-progress-fill" style={{ width: `${analyzeProgress}%` }}>
+            <div className="ws-progress-shim" />
+          </div>
+        </div>
+
+        {/* Steps */}
+        <div className="ws-steps">
+          <div className={`ws-step ${analyzeStep === 'summary' ? 'active' : 'done'}`}>
+            <span className="ws-step-dot">
+              {analyzeStep === 'summary' ? <span className="spinner" style={{width:10,height:10}} /> : '✓'}
+            </span>
+            Generating summary
+          </div>
+          <div className={`ws-step ${analyzeStep === 'keypoints' ? 'active' : analyzeStep === 'done' ? 'done' : 'pending'}`}>
+            <span className="ws-step-dot">
+              {analyzeStep === 'done' ? '✓' : analyzeStep === 'keypoints' ? <span className="spinner" style={{width:10,height:10}} /> : '○'}
+            </span>
+            Extracting key points
+          </div>
+        </div>
+
+        {/* Live preview as it types */}
+        {summary && (
+          <div className="ws-live-preview">
+            <span className="ws-live-label">Live preview</span>
+            <p>{summary.slice(0, 100)}{summary.length > 100 ? '…' : ''}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // ── READY — MAIN WORKSPACE ─────────────────────────────
   return (
-    <div className="workspace-ready">
+    <div className="ws-workspace">
 
-      {/* ── Top bar ── */}
-      <div className="workspace-topbar">
-        <div className="workspace-doc-info">
-          <div className="workspace-doc-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      {/* Top bar */}
+      <div className="ws-topbar">
+        <div className="ws-doc-chip">
+          <div className="ws-doc-chip-icon">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
               <polyline points="14 2 14 8 20 8"/>
             </svg>
           </div>
           <div>
-            <div className="workspace-doc-name">{fileName}</div>
-            <div className="workspace-doc-meta">{wordCount.toLocaleString()} words · analyzed privately</div>
+            <div className="ws-doc-name">{fileName}</div>
+            <div className="ws-doc-meta">{wordCount.toLocaleString()} words</div>
           </div>
         </div>
-        <div className="workspace-topbar-actions">
-          <div className="workspace-online-badge">
-            <span className="workspace-online-dot" />
-            100% On-Device
-          </div>
-          <div className="workspace-panel-tabs">
-            <button
-              className={`workspace-panel-tab ${activePanel === 'insights' ? 'active' : ''}`}
-              onClick={() => setActivePanel('insights')}
-            >
-              📋 Insights
+
+        <div className="ws-tab-group">
+          {([
+            { id: 'summary',   label: '📋 Summary' },
+            { id: 'keypoints', label: '🎯 Key Points' },
+            { id: 'chat',      label: `💬 Chat${userMsgs > 0 ? ` (${userMsgs})` : ''}` },
+          ] as const).map(t => (
+            <button key={t.id} className={`ws-tab ${activeTab === t.id ? 'active' : ''}`} onClick={() => setActiveTab(t.id)}>
+              {t.label}
             </button>
-            <button
-              className={`workspace-panel-tab ${activePanel === 'chat' ? 'active' : ''}`}
-              onClick={() => setActivePanel('chat')}
-            >
-              💬 Chat
-              {messages.filter(m => m.role === 'user').length > 0 && (
-                <span className="workspace-chat-badge">{messages.filter(m => m.role === 'user').length}</span>
-              )}
-            </button>
-          </div>
-          <button className="btn btn-secondary btn-sm" onClick={resetWorkspace}>
+          ))}
+        </div>
+
+        <div className="ws-topbar-right">
+          <span className="ws-privacy-chip">🔒 On-Device</span>
+          <button className="ws-reset-btn" onClick={reset}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>
             New PDF
           </button>
         </div>
       </div>
 
-      <div className="workspace-body">
+      {/* Content */}
+      <div className="ws-content">
 
-        {/* ── INSIGHTS PANEL ── */}
-        {activePanel === 'insights' && (
-          <div className="workspace-insights">
-
-            {/* Summary card */}
-            <div className="insight-card insight-card-summary">
-              <div className="insight-card-header">
-                <div className="insight-card-icon" style={{ background: 'rgba(129,140,248,0.15)', color: '#818CF8' }}>
+        {/* ── SUMMARY TAB ── */}
+        {activeTab === 'summary' && (
+          <div className="ws-panel">
+            <div className="ws-result-card ws-summary-card">
+              <div className="ws-result-header">
+                <div className="ws-result-icon" style={{ background:'rgba(129,140,248,0.15)', color:'#818CF8' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
                     <line x1="8" y1="18" x2="21" y2="18"/>
-                    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/>
-                    <line x1="3" y1="18" x2="3.01" y2="18"/>
+                    <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
                   </svg>
                 </div>
-                <span className="insight-card-title">Summary</span>
-                <CopyBtn text={summary} />
+                <h2 className="ws-result-title">Document Summary</h2>
+                {summary && <CopyBtn text={summary} />}
               </div>
-              <div className="insight-card-body">
-                {summary ? (
-                  <p className="insight-text">{summary}</p>
-                ) : (
-                  <div className="insight-skeleton"><div /><div /><div /></div>
-                )}
-              </div>
-            </div>
-
-            {/* Key points card */}
-            <div className="insight-card insight-card-keypoints">
-              <div className="insight-card-header">
-                <div className="insight-card-icon" style={{ background: 'rgba(34,211,238,0.12)', color: '#22D3EE' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <polyline points="9 11 12 14 22 4"/>
-                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
-                  </svg>
-                </div>
-                <span className="insight-card-title">Key Points</span>
-                <CopyBtn text={keyPoints} />
-              </div>
-              <div className="insight-card-body">
-                {keyPoints ? (
-                  <div className="insight-keypoints">
-                    {keyPoints.split('\n').filter(l => l.trim()).map((line, i) => (
-                      <div key={i} className="insight-keypoint">
-                        <span className="insight-keypoint-num">{i + 1}</span>
-                        <span>{line.replace(/^\d+\.\s*/, '')}</span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="insight-skeleton"><div /><div /><div /><div /></div>
-                )}
+              <div className="ws-result-body">
+                {summary
+                  ? <p className="ws-summary-text">{summary}</p>
+                  : <div className="ws-skeleton"><div/><div/><div/></div>
+                }
               </div>
             </div>
-
-            {/* CTA to chat */}
-            <button className="insight-chat-cta" onClick={() => setActivePanel('chat')}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-              </svg>
+            <button className="ws-goto-btn" onClick={() => setActiveTab('chat')}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               Ask questions about this document →
             </button>
           </div>
         )}
 
-        {/* ── CHAT PANEL ── */}
-        {activePanel === 'chat' && (
-          <div className="workspace-chat">
+        {/* ── KEY POINTS TAB ── */}
+        {activeTab === 'keypoints' && (
+          <div className="ws-panel">
+            <div className="ws-result-card ws-kp-card">
+              <div className="ws-result-header">
+                <div className="ws-result-icon" style={{ background:'rgba(34,211,238,0.12)', color:'#22D3EE' }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="9 11 12 14 22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                </div>
+                <h2 className="ws-result-title">Key Points</h2>
+                {keyPoints.length > 0 && <CopyBtn text={keyPoints.join('\n')} />}
+              </div>
+              <div className="ws-result-body">
+                {keyPoints.length > 0
+                  ? (
+                    <div className="ws-kp-list">
+                      {keyPoints.map((pt, i) => (
+                        <div key={i} className="ws-kp-item">
+                          <span className="ws-kp-num">{i + 1}</span>
+                          <span className="ws-kp-text">{pt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                  : <div className="ws-skeleton"><div/><div/><div/><div/></div>
+                }
+              </div>
+            </div>
+            <button className="ws-goto-btn" onClick={() => setActiveTab('chat')}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              Dive deeper — chat with this document →
+            </button>
+          </div>
+        )}
 
-            {/* Chat context banner */}
-            <div className="workspace-chat-context">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        {/* ── CHAT TAB ── */}
+        {activeTab === 'chat' && (
+          <div className="ws-chat-panel">
+            <div className="ws-chat-context-bar">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                 <polyline points="14 2 14 8 20 8"/>
               </svg>
-              Chatting with: <strong>{fileName}</strong>
-              <span className="workspace-chat-context-badge">Document context active</span>
+              Chatting with <strong>{fileName}</strong>
+              <span className="ws-context-badge">Document context active</span>
             </div>
 
             {/* Suggested questions */}
             {messages.length <= 1 && (
-              <div className="workspace-suggestions">
-                <div className="workspace-suggestions-label">Suggested questions:</div>
-                <div className="workspace-suggestions-grid">
-                  {[
-                    'What is the main argument of this document?',
-                    'What evidence or data does it present?',
-                    'What are the key conclusions?',
-                    'What methodology was used?',
-                  ].map(q => (
-                    <button
-                      key={q}
-                      className="workspace-suggestion-btn"
-                      onClick={() => sendMessage(q)}
-                      disabled={isGenerating || model.status !== 'ready'}
-                    >
+              <div className="ws-suggestions">
+                <div className="ws-suggestions-title">Try asking:</div>
+                <div className="ws-suggestions-grid">
+                  {['What is the main argument?', 'What evidence is provided?', 'What are the conclusions?', 'Explain the methodology used.'].map(q => (
+                    <button key={q} className="ws-suggestion" onClick={() => sendMessage(q)} disabled={isGenerating}>
                       {q}
                     </button>
                   ))}
@@ -527,26 +453,26 @@ export default function PDFWorkspace({ model }: Props) {
             )}
 
             {/* Messages */}
-            <div className="workspace-messages">
+            <div className="ws-messages">
               {messages.map((m, i) => (
-                <div key={m.id} className={`chat-bubble-row ${m.role}`}>
-                  <div className="bubble-avatar">
+                <div key={m.id} className={`ws-msg-row ${m.role}`}>
+                  <div className="ws-msg-avatar">
                     {m.role === 'user'
-                      ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                      : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
+                      ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8v8"/></svg>
                     }
                   </div>
-                  <div className="bubble-content">
-                    <div className={`bubble ${m.role}`}>
+                  <div className="ws-msg-body">
+                    <div className={`ws-bubble ${m.role}`}>
                       {!m.content && isGenerating && i === messages.length - 1
-                        ? <span className="thinking-dots"><span /><span /><span /></span>
+                        ? <span className="thinking-dots"><span/><span/><span/></span>
                         : <>{m.content}{isGenerating && i === messages.length - 1 && m.content && <span className="typing-cursor" />}</>
                       }
                     </div>
-                    {m.role === 'ai' && m.content && !(isGenerating && i === messages.length - 1) && (
-                      <div className="msg-actions"><CopyBtn text={m.content} /><span className="bubble-time">{fmtTime(m.timestamp)}</span></div>
-                    )}
-                    {m.role === 'user' && <div className="bubble-time" style={{ textAlign: 'right' }}>{fmtTime(m.timestamp)}</div>}
+                    <div className="ws-msg-meta">
+                      {m.role === 'ai' && m.content && !(isGenerating && i === messages.length - 1) && <CopyBtn text={m.content} />}
+                      <span className="ws-msg-time">{fmtTime(m.timestamp)}</span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -554,34 +480,27 @@ export default function PDFWorkspace({ model }: Props) {
             </div>
 
             {/* Input */}
-            <div className="chat-input-bar">
-              <div className="chat-input-wrap">
+            <div className="ws-input-bar">
+              <div className="ws-input-wrap">
                 <textarea
-                  ref={textareaRef}
-                  rows={1}
+                  ref={inputRef} rows={1}
                   placeholder="Ask anything about this document…"
                   value={input}
-                  onChange={e => {
-                    setInput(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-                  }}
+                  onChange={e => { setInput(e.target.value); e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'; }}
                   onKeyDown={handleKey}
                   disabled={isGenerating || model.status !== 'ready'}
-                  style={{ height: 'auto' }}
+                  style={{ height:'auto' }}
                 />
-                <div className="chat-input-actions">
-                  {isGenerating
-                    ? <button className="stop-btn" onClick={() => { abortRef.current = true; }}>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg> Stop
-                      </button>
-                    : <button className="send-btn" onClick={() => sendMessage()} disabled={model.status !== 'ready' || !input.trim()}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
-                      </button>
-                  }
-                </div>
+                {isGenerating
+                  ? <button className="ws-stop-btn" onClick={() => { abortRef.current = true; }}>⏹</button>
+                  : <button className="ws-send-btn" onClick={() => sendMessage()} disabled={!input.trim() || model.status !== 'ready'}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                      </svg>
+                    </button>
+                }
               </div>
-              <div className="chat-input-hint">🔒 All responses generated on your device · Enter to send</div>
+              <div className="ws-input-hint">🔒 On-device · Enter to send · Shift+Enter for new line</div>
             </div>
           </div>
         )}
