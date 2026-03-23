@@ -162,7 +162,7 @@ export default function SmartNotes({ model }: Props) {
 
     const cfg = AI_ACTIONS.find(a => a.id === action)!;
     try {
-      for await (const tok of model.generate(cfg.prompt(active.content), { maxTokens: 400, temperature: 0.5 })) {
+      for await (const tok of model.generate(cfg.prompt(active.content), { maxTokens: 120, temperature: 0.3 })) {
         if (abortRef.current) break;
         bufferRef.current += tok;
         cancelAnimationFrame(rafRef.current);

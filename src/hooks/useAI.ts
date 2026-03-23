@@ -4,15 +4,15 @@ import type { ModelState } from './useModelLoader';
 // ── Prompt builders ───────────────────────────────────────────
 
 export function buildSummaryPrompt(text: string): string {
-  return `You are a research assistant. Summarize the following content clearly and concisely in 3-5 sentences. Focus on the most important findings and key ideas.\n\n${text.slice(0, 4000)}`;
+  return `Summarize in 2-3 sentences only:\n\n${text.slice(0, 1500)}`;
 }
 
 export function buildKeyPointsPrompt(text: string): string {
-  return `You are a research assistant. Extract exactly 5 key points from the following document as a numbered list. Each point must be one clear sentence. Be precise.\n\n${text.slice(0, 4000)}`;
+  return `List 3 key points as numbered list, one sentence each:\n\n${text.slice(0, 1500)}`;
 }
 
 export function buildQAPrompt(text: string, question: string): string {
-  return `You are a research assistant. Answer ONLY using the document below. Be specific.\n\nQuestion: ${question}\n\nDocument:\n${text.slice(0, 4000)}`;
+  return `Answer briefly using only this document.\n\nQuestion: ${question}\n\nDocument:\n${text.slice(0, 1500)}`;
 }
 
 export function buildNoteSummaryPrompt(text: string): string {
@@ -36,8 +36,8 @@ export function buildPrivateBrainPrompt(
   question: string
 ): string {
   // Use more of the PDF — 5000 chars instead of 2600
-  const PDF_LIMIT   = 5000;
-  const NOTES_LIMIT = 1200;
+  const PDF_LIMIT   = 1500;
+  const NOTES_LIMIT = 600;
 
   const sources: string[] = [];
 

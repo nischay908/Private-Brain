@@ -184,12 +184,12 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
     setPhase('analyzing'); setSummary(''); setKeyPoints([]); setMessages([]); setProgress(0);
 
     setAnalyzeStep('summary');
-    await run(buildSummaryPrompt(text), { maxTokens: 160, temperature: 0.15 }, (t: string) => setSummary(t));
+    await run(buildSummaryPrompt(text), { maxTokens: 80, temperature: 0.1 }, (t: string) => setSummary(t));
 
     setAnalyzeStep('keypoints');
     let kpRaw = '';
     await run(
-      buildKeyPointsPrompt(text), { maxTokens: 200, temperature: 0.15 },
+      buildKeyPointsPrompt(text), { maxTokens: 80, temperature: 0.1 },
       (t: string) => { kpRaw = t; },
       () => {
         const pts = kpRaw.split('\n')
@@ -226,7 +226,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
 
     try {
       const prompt = buildPrivateBrainPrompt(docText, notesContext, [...messages, userMsg], msg);
-      for await (const tok of model.generate(prompt, { maxTokens: 380, temperature: 0.3 })) {
+      for await (const tok of model.generate(prompt, { maxTokens: 120, temperature: 0.2 })) {
         if (abortRef.current) break;
         bufRef.current += tok;
         cancelAnimationFrame(rafRef.current);
