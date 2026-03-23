@@ -809,3 +809,368 @@ textarea, input { font-family: var(--font-body); }
   .ws-topbar { padding:10px 14px; }
   .ws-messages { padding:14px 16px; }
 }
+/* ═══════════════════════════════════════════════════════
+   EXTRA STYLES — paste at BOTTOM of index.css
+   Hero compare · Stats bar · Knowledge label · Sources
+═══════════════════════════════════════════════════════ */
+
+/* ── Hero VS comparison ── */
+.hero-compare {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 16px 20px;
+  background: rgba(255,255,255,0.025);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  backdrop-filter: blur(12px);
+  animation: heroIn 0.6s var(--ease-out) 0.15s both;
+  opacity: 0;
+}
+
+.hero-compare-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+}
+
+.hero-compare-bad {
+  background: rgba(248,113,113,0.07);
+  border: 1px solid rgba(248,113,113,0.18);
+}
+
+.hero-compare-good {
+  background: rgba(52,211,153,0.07);
+  border: 1px solid rgba(52,211,153,0.2);
+}
+
+.hero-compare-icon { font-size: 22px; flex-shrink: 0; }
+
+.hero-compare-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  font-family: var(--font-display, sans-serif);
+  margin-bottom: 2px;
+}
+
+.hero-compare-desc {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.hero-compare-divider {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-3);
+  font-family: var(--font-mono, monospace);
+  flex-shrink: 0;
+  letter-spacing: 1px;
+}
+
+/* ── Hero subtitle highlight ── */
+.hero-sub-highlight {
+  color: var(--a3, #34D399);
+  font-weight: 600;
+}
+
+/* ── Drop zone CTA line ── */
+.ws-drop-cta {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--a1, #6C8EF5);
+  font-family: var(--font-mono, monospace);
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
+}
+
+/* ── Notes active on hero ── */
+.hero-notes-active {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(56,189,248,0.07);
+  border: 1px solid rgba(56,189,248,0.2);
+  color: var(--a2, #38BDF8);
+  font-size: 13px;
+  font-weight: 500;
+  width: 100%;
+  justify-content: center;
+  animation: heroIn 0.5s var(--ease-out) both;
+}
+
+/* ── Stats bar after analysis ── */
+.stats-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 16px 24px;
+  background: rgba(108,142,245,0.05);
+  border: 1px solid rgba(108,142,245,0.15);
+  border-radius: 16px;
+  animation: cardIn 0.4s var(--ease-out) both;
+  overflow: hidden;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  padding: 0 16px;
+}
+
+.stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-1);
+  font-family: var(--font-display, sans-serif);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+/* Override stat for "0 bytes" — make it green */
+.stat-item:nth-child(5) .stat-value { color: var(--a3, #34D399); }
+
+.stat-label {
+  font-size: 10.5px;
+  color: var(--text-3);
+  font-family: var(--font-mono, monospace);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Insight source badges on cards ── */
+.insight-source-badge {
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: rgba(108,142,245,0.1);
+  border: 1px solid rgba(108,142,245,0.2);
+  color: var(--a1, #6C8EF5);
+  font-size: 10.5px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  margin-right: 4px;
+}
+
+.insight-source-cyan {
+  background: rgba(56,189,248,0.08) !important;
+  border-color: rgba(56,189,248,0.2) !important;
+  color: var(--a2, #38BDF8) !important;
+}
+
+/* ── Context sources chips in topbar ── */
+.ws-context-sources {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.ws-source-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: 100px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  border: 1px solid;
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-source-pdf {
+  background: rgba(108,142,245,0.08);
+  border-color: rgba(108,142,245,0.22);
+  color: var(--a1, #6C8EF5);
+}
+
+.ws-source-notes {
+  background: rgba(56,189,248,0.07);
+  border-color: rgba(56,189,248,0.2);
+  color: var(--a2, #38BDF8);
+}
+
+/* ── Tab count badge ── */
+.ws-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--a1, #6C8EF5);
+  color: white;
+  font-size: 10px;
+  font-weight: 800;
+  margin-left: 4px;
+}
+
+/* ── "Answering from your knowledge" label ── */
+.knowledge-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--a3, #34D399);
+  font-family: var(--font-mono, monospace);
+  margin-bottom: 5px;
+  opacity: 0.85;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ── Chat context bar sources ── */
+.ctx-source {
+  padding: 2px 9px;
+  border-radius: 100px;
+  background: rgba(108,142,245,0.08);
+  border: 1px solid rgba(108,142,245,0.18);
+  color: var(--a1, #6C8EF5);
+  font-size: 10.5px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.ctx-source:nth-child(4) {
+  background: rgba(56,189,248,0.07);
+  border-color: rgba(56,189,248,0.18);
+  color: var(--a2, #38BDF8);
+}
+
+/* ── Offline indicator in topnav ── */
+.offline-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 100px;
+  background: rgba(52,211,153,0.1);
+  border: 1px solid rgba(52,211,153,0.28);
+  color: var(--a3, #34D399);
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-mono, monospace);
+  animation: offlinePop 0.4s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)) both;
+}
+@keyframes offlinePop {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Knowledge pill in topnav ── */
+.knowledge-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 13px;
+  border-radius: 100px;
+  background: rgba(108,142,245,0.08);
+  border: 1px solid rgba(108,142,245,0.22);
+  color: var(--a1, #6C8EF5);
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-mono, monospace);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  animation: offlinePop 0.4s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)) both;
+}
+
+.knowledge-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--a1, #6C8EF5);
+  flex-shrink: 0;
+  box-shadow: 0 0 8px rgba(108,142,245,0.6);
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+/* ── PWA / service worker install prompt ── */
+.pwa-install-banner {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px;
+  background: var(--bg-1, #0C0F1A);
+  border: 1px solid rgba(108,142,245,0.3);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 24px rgba(108,142,245,0.1);
+  z-index: 9999;
+  animation: toastIn 0.35s var(--ease-spring, cubic-bezier(0.34,1.56,0.64,1)) both;
+  white-space: nowrap;
+}
+
+.pwa-install-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.pwa-install-text span { color: var(--a1, #6C8EF5); }
+
+.pwa-install-btn {
+  padding: 8px 18px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, #6C8EF5, #38BDF8);
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  transition: all 0.18s;
+  font-family: var(--font-body, sans-serif);
+}
+.pwa-install-btn:hover { transform: scale(1.04); box-shadow: 0 4px 16px rgba(108,142,245,0.4); }
+
+.pwa-install-dismiss {
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s;
+  border: none;
+  background: none;
+  font-family: var(--font-body, sans-serif);
+}
+.pwa-install-dismiss:hover { background: rgba(255,255,255,0.06); color: var(--text-1); }
+
+/* ── Kp items animation ── */
+.ws-kp-item { animation: kpIn 0.35s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) both; opacity: 0; }
+@keyframes kpIn { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+
+/* ── Panel smooth entrance ── */
+.panel-enter { animation: cardIn 0.28s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) both; }
+
+/* ── Result cards entrance delay ── */
+.ws-result-card { animation: cardIn 0.3s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) both; }
+.ws-result-card:nth-child(2) { animation-delay: 0.08s; }
+.ws-result-card:nth-child(3) { animation-delay: 0.16s; }
