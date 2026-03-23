@@ -1174,3 +1174,358 @@ textarea, input { font-family: var(--font-body); }
 .ws-result-card { animation: cardIn 0.3s var(--ease-out, cubic-bezier(0.16,1,0.3,1)) both; }
 .ws-result-card:nth-child(2) { animation-delay: 0.08s; }
 .ws-result-card:nth-child(3) { animation-delay: 0.16s; }
+/* ══════════════════════════════════════════════════
+   OFFLINE-FIRST UI ADDITIONS
+   - Offline Ready badge (topnav + loading screen)
+   - Typing cursor animation
+   - Fade-in transitions
+   - Hover glow effects
+   - Animated gradient background (loading screen)
+══════════════════════════════════════════════════ */
+
+/* ── Offline Ready badge (topnav) ── */
+.offline-ready-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 11px 4px 9px;
+  border-radius: 20px;
+  background: rgba(52, 211, 153, 0.12);
+  border: 1px solid rgba(52, 211, 153, 0.28);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #34D399;
+  letter-spacing: 0.2px;
+  animation: badgePulse 3s ease-in-out infinite, badgeFadeIn 0.5s ease both;
+  cursor: default;
+}
+.offline-ready-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 6px #34D399;
+  animation: dotPulse 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes badgePulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(52,211,153,0); }
+  50%      { box-shadow: 0 0 12px rgba(52,211,153,0.2); }
+}
+@keyframes badgeFadeIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+@keyframes dotPulse {
+  0%,100% { opacity: 1; transform: scale(1);    }
+  50%      { opacity: .65; transform: scale(1.35); }
+}
+
+/* ── Offline-Ready chip on loading screen ── */
+.pb-offline-ready-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: rgba(52,211,153,0.13);
+  border: 1px solid rgba(52,211,153,0.3);
+  color: #34D399;
+  font-size: 12px;
+  font-weight: 500;
+  margin: 8px auto 0;
+}
+.pb-offline-ready-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #34D399;
+  box-shadow: 0 0 6px #34D399;
+  animation: dotPulse 2s ease-in-out infinite;
+}
+.fade-in-badge {
+  animation: badgeFadeIn 0.6s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Typing animation ── */
+.pb-typing-label { position: relative; }
+.pb-cursor {
+  display: inline-block;
+  width: 2px;
+  color: var(--a1);
+  font-weight: 300;
+  animation: blink 1.1s step-start infinite;
+  margin-left: 1px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* ── Loading screen fade-in on mount ── */
+.loading-fade-in { opacity: 0; transition: opacity 0.5s ease; }
+.loading-fade-in.loaded { opacity: 1; }
+
+/* ── Animated gradient background (loading screen only) ── */
+.pb-loading-bg-gradient {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(108,142,245,0.07) 0%,
+    rgba(56,189,248,0.05) 33%,
+    rgba(52,211,153,0.04) 66%,
+    rgba(108,142,245,0.07) 100%
+  );
+  background-size: 400% 400%;
+  animation: gradShift 10s ease-in-out infinite;
+}
+@keyframes gradShift {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+/* ── Chip hover glow ── */
+.chip-hover {
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.18s ease,
+              background 0.18s ease;
+}
+.chip-hover:hover {
+  transform: scale(1.07) translateY(-2px);
+  box-shadow: 0 0 18px rgba(108,142,245,0.22);
+  background: rgba(108,142,245,0.18);
+}
+
+/* ── Topnav button hover glow ── */
+.topnav-btn {
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.18s ease,
+              background 0.18s ease !important;
+}
+.topnav-btn:hover {
+  transform: scale(1.06) translateY(-1px);
+  box-shadow: 0 0 16px rgba(108,142,245,0.2) !important;
+}
+
+/* ── Page enter fade ── */
+.page-enter {
+  animation: pageFadeIn 0.32s cubic-bezier(0.16,1,0.3,1) both;
+}
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Hero feature cards hover glow ── */
+.ws-hero-feature {
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.2s ease !important;
+}
+.ws-hero-feature:hover {
+  transform: translateY(-4px) scale(1.03) !important;
+  box-shadow: 0 8px 32px rgba(108,142,245,0.18) !important;
+}
+
+/* ── Upload drop zone hover glow ── */
+.ws-drop {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+}
+.ws-drop:hover:not(.over) {
+  transform: translateY(-2px);
+  box-shadow: 0 0 40px rgba(108,142,245,0.14) !important;
+}
+
+/* ── Result card fade-in ── */
+.ws-result-card {
+  animation: cardReveal 0.4s cubic-bezier(0.16,1,0.3,1) both !important;
+}
+@keyframes cardReveal {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Chat message slide-in ── */
+.ws-msg-row {
+  animation: msgSlide 0.28s cubic-bezier(0.16,1,0.3,1) both !important;
+}
+@keyframes msgSlide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Send/stop button glow on hover ── */
+.ws-send-btn:not(:disabled):hover,
+.ws-stop-btn:hover {
+  box-shadow: 0 0 20px rgba(108,142,245,0.35) !important;
+  transform: scale(1.08) !important;
+  transition: transform 0.15s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s ease !important;
+}
+
+/* ── Key insight items hover ── */
+.ws-kp-item {
+  transition: transform 0.18s ease, background 0.18s ease !important;
+}
+.ws-kp-item:hover {
+  transform: translateX(4px) !important;
+  background: rgba(108,142,245,0.07) !important;
+}
+
+/* ── Note card hover ── */
+.notes-card {
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.18s ease !important;
+}
+.notes-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 24px rgba(108,142,245,0.15) !important;
+}
+
+/* ══════════════════════════════════════════════════
+   ENHANCED HERO LANDING
+   - Animated gradient background
+   - Staggered fade-in entries
+   - 3-step "how it works" flow
+   - Private Brain chat label
+══════════════════════════════════════════════════ */
+
+/* ── Hero animated gradient background ── */
+.hero-gradient-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(108,142,245,0.09) 0%,
+    rgba(56,189,248,0.06)  35%,
+    rgba(52,211,153,0.05)  65%,
+    rgba(108,142,245,0.09) 100%
+  );
+  background-size: 300% 300%;
+  animation: heroGradShift 12s ease-in-out infinite;
+  border-radius: inherit;
+}
+@keyframes heroGradShift {
+  0%   { background-position: 0%   50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0%   50%; }
+}
+
+/* ── Hero staggered fade-ins ── */
+.ws-hero.hero-enhanced { opacity: 0; transition: opacity 0.4s ease; }
+.ws-hero.hero-enhanced.hero-visible { opacity: 1; }
+
+.hero-badge-slide {
+  animation: slideDown 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s both;
+}
+.hero-title-fade {
+  animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.2s both;
+}
+.hero-sub-fade {
+  animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.32s both;
+}
+.hero-steps-fade {
+  animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.42s both;
+}
+.hero-compare-fade {
+  animation: fadeUp 0.6s cubic-bezier(0.16,1,0.3,1) 0.5s both;
+}
+.hero-drop-fade {
+  animation: fadeUp 0.7s cubic-bezier(0.16,1,0.3,1) 0.58s both;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── How it works — 3 steps ── */
+.hero-how-it-works {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 24px 0 20px;
+  width: 100%;
+  justify-content: center;
+}
+
+.hero-step {
+  flex: 1;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 12px;
+  border-radius: var(--r-lg);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1),
+              box-shadow 0.2s ease,
+              border-color 0.2s ease;
+}
+.hero-step:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 36px rgba(108,142,245,0.14);
+  border-color: rgba(108,142,245,0.25);
+}
+
+.hero-step-num {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--a1);
+  opacity: 0.7;
+  letter-spacing: 1px;
+}
+.hero-step-icon { font-size: 26px; line-height: 1; }
+.hero-step-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-1);
+  font-family: var(--font-display);
+}
+.hero-step-desc {
+  font-size: 11.5px;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+
+.hero-step-arrow {
+  font-size: 18px;
+  color: var(--text-3);
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+
+/* ── Private Brain answer label ── */
+.pb-answer-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 8px;
+  border-radius: 20px;
+  background: linear-gradient(
+    90deg,
+    rgba(52,211,153,0.1),
+    rgba(108,142,245,0.08)
+  );
+  border: 1px solid rgba(52,211,153,0.22);
+  font-size: 11px;
+  font-weight: 600;
+  color: #34D399;
+  letter-spacing: 0.2px;
+  font-family: var(--font-mono);
+  margin-bottom: 5px;
+  animation: labelPop 0.3s cubic-bezier(0.34,1.56,0.64,1) both;
+}
+.pb-answer-label-icon {
+  display: flex;
+  align-items: center;
+  color: #34D399;
+  opacity: 0.85;
+}
+@keyframes labelPop {
+  from { opacity: 0; transform: scale(0.88) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}

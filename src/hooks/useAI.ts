@@ -1,49 +1,83 @@
-/**
- * useAI — shared AI logic for all 3 tools
- *
- * Single place for all prompt templates and the
- * streaming generate helper. Notes, ResearchAnalyzer,
- * and ChatAssistant all import from here so there's
- * zero duplication.
- */
-
 import { useCallback, useRef } from 'react';
 import type { ModelState } from './useModelLoader';
 
-// ── Prompt builders ──────────────────────────────────────
-export function buildSummaryPrompt(text: string): string {
-  return `You are a research assistant. Summarize the following content clearly and concisely in 3-5 sentences. Focus on the most important findings and key ideas.\n\n${text.slice(0, 3500)}`;
-}
+// ── Prompt builders ───────────────────────────────────────────
 
-export function buildQAPrompt(text: string, question: string): string {
-  return `You are a research assistant. Answer the following question using only the information provided in the document below. Be specific and cite relevant parts.\n\nQuestion: ${question}\n\nDocument:\n${text.slice(0, 3500)}`;
+export function buildSummaryPrompt(text: string): string {
+  return `You are a research assistant. Summarize the following content clearly and concisely in 3-5 sentences. Focus on the most important findings and key ideas.\n\n${text.slice(0, 4000)}`;
 }
 
 export function buildKeyPointsPrompt(text: string): string {
-  return `You are a research assistant. Extract the 5 most important key points from the following document as a numbered list. Be concise and precise.\n\n${text.slice(0, 3500)}`;
+  return `You are a research assistant. Extract exactly 5 key points from the following document as a numbered list. Each point must be one clear sentence. Be precise.\n\n${text.slice(0, 4000)}`;
 }
 
-export function buildChatPrompt(history: { role: string; content: string }[], message: string): string {
-  const ctx = history
-    .slice(-8)
-    .map(m => `${m.role === 'user' ? 'Researcher' : 'Assistant'}: ${m.content}`)
-    .join('\n');
-  return `You are PrivateBrain, a private AI research assistant running entirely in the user's browser. Help the researcher think through ideas, analyze information, and answer questions clearly and accurately. Never mention sending data anywhere — everything runs locally.\n\n${ctx}\nResearcher: ${message}\nAssistant:`;
+export function buildQAPrompt(text: string, question: string): string {
+  return `You are a research assistant. Answer ONLY using the document below. Be specific.\n\nQuestion: ${question}\n\nDocument:\n${text.slice(0, 4000)}`;
 }
 
 export function buildNoteSummaryPrompt(text: string): string {
-  return `Summarize these research notes in 2-3 clear sentences, capturing the core ideas:\n\n${text}`;
+  return `Summarize these notes in 2-3 clear sentences, capturing the core ideas:\n\n${text}`;
 }
 
 export function buildNoteKeyPointsPrompt(text: string): string {
-  return `Extract the 3-5 key points from these research notes as a numbered list:\n\n${text}`;
+  return `Extract the 3-5 key points from these notes as a numbered list:\n\n${text}`;
 }
 
 export function buildNoteTitlePrompt(text: string): string {
-  return `Suggest 3 short, descriptive titles for these research notes. Return only the titles, one per line, no numbering:\n\n${text}`;
+  return `Suggest 3 short, descriptive titles for these notes. Return only the titles, one per line, no numbering:\n\n${text}`;
 }
 
-// ── Streaming helper ─────────────────────────────────────
+// ── ENHANCED: context-aware chat prompt ──────────────────────
+// Chunks large PDFs and restricts answers strictly to sources.
+export function buildPrivateBrainPrompt(
+  pdfText: string,
+  notesText: string,
+  history: { role: string; content: string }[],
+  question: string
+): string {
+  // Use more of the PDF — 5000 chars instead of 2600
+  const PDF_LIMIT   = 5000;
+  const NOTES_LIMIT = 1200;
+
+  const sources: string[] = [];
+
+  if (pdfText.trim()) {
+    const chunk = pdfText.slice(0, PDF_LIMIT);
+    const truncated = pdfText.length > PDF_LIMIT;
+    sources.push(
+      `=== UPLOADED DOCUMENT ===\n${chunk}${truncated ? '\n[...document continues — showing first portion]' : ''}`
+    );
+  }
+
+  if (notesText.trim()) {
+    sources.push(`=== YOUR BRAIN NOTES ===\n${notesText.slice(0, NOTES_LIMIT)}`);
+  }
+
+  if (sources.length === 0) {
+    return `You are PrivateBrain. No documents are loaded. Tell the user to upload a PDF or write notes first, then you can answer questions about them.\n\nUser: ${question}\nBrain:`;
+  }
+
+  const ctx = history
+    .slice(-6)
+    .map(m => `${m.role === 'user' ? 'User' : 'Brain'}: ${m.content}`)
+    .join('\n');
+
+  return `You are PrivateBrain, a private AI research assistant. You have been given the user's private documents below. Your job is to answer questions STRICTLY using only these documents.
+
+RULES:
+1. Only answer from the sources below — never use outside knowledge.
+2. If the answer is not in the sources, say exactly: "I don't see that in your loaded documents."
+3. Be structured: use short paragraphs or numbered points when listing multiple things.
+4. Be specific — reference the actual content from the documents, not vague summaries.
+5. Keep answers concise and relevant.
+
+${sources.join('\n\n')}
+
+${ctx ? `Previous conversation:\n${ctx}\n` : ''}User: ${question}
+Brain:`;
+}
+
+// ── Streaming helper ──────────────────────────────────────────
 export function useStreamingAI(model: ModelState) {
   const bufferRef = useRef('');
   const rafRef    = useRef<number>(0);
@@ -75,6 +109,5 @@ export function useStreamingAI(model: ModelState) {
   }, [model]);
 
   const abort = useCallback(() => { abortRef.current = true; }, []);
-
   return { run, abort };
 }

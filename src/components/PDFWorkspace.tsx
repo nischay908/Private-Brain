@@ -1,13 +1,6 @@
-/**
- * PDFWorkspace — Complete rewrite
- * - Hero with animated stats counter + comparison vs ChatGPT
- * - PDF upload → auto summary + key insights with staggered card reveal
- * - Chat uses PDF + notes as unified context
- * - "Answering from your knowledge" label on every AI message
- */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { ModelState } from '../hooks/useModelLoader';
-import { useStreamingAI, buildSummaryPrompt, buildKeyPointsPrompt } from '../hooks/useAI';
+import { useStreamingAI, buildSummaryPrompt, buildKeyPointsPrompt, buildPrivateBrainPrompt } from '../hooks/useAI';
 import * as mammoth from 'mammoth';
 import * as pdfjsLib from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -16,7 +9,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrl;
 interface Props {
   model: ModelState;
   onPdfLoaded?: (text: string, name: string) => void;
-  notesContext?: string; // notes text from SmartNotes
+  notesContext?: string;
 }
 
 interface ChatMessage {
@@ -29,7 +22,7 @@ interface ChatMessage {
 
 type Phase = 'hero' | 'reading' | 'analyzing' | 'ready';
 
-// ── File extraction ──
+// ── File extraction ───────────────────────────────────────────
 async function extractText(file: File): Promise<string> {
   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
   if (ext === 'txt' || ext === 'md') return await file.text();
@@ -53,35 +46,10 @@ async function extractText(file: File): Promise<string> {
   throw new Error(`Unsupported ".${ext}". Upload PDF, DOCX, TXT or MD.`);
 }
 
-// ── Build context-aware prompt using PDF + notes ──
-function buildKnowledgePrompt(
-  pdfText: string,
-  notesText: string,
-  history: ChatMessage[],
-  question: string
-): string {
-  const ctx = history
-    .slice(-8)
-    .map(m => `${m.role === 'user' ? 'User' : 'Brain'}: ${m.content}`)
-    .join('\n');
-
-  const sources: string[] = [];
-  if (pdfText)   sources.push(`=== UPLOADED DOCUMENT ===\n${pdfText.slice(0, 2600)}`);
-  if (notesText) sources.push(`=== YOUR BRAIN NOTES ===\n${notesText.slice(0, 700)}`);
-
-  return `You are PrivateBrain, a private AI research assistant. Answer ONLY using the knowledge sources below. If the answer is not found in the sources, say "I don't see that in your loaded documents." Be concise and specific.
-
-${sources.join('\n\n')}
-
-${ctx ? `Previous conversation:\n${ctx}\n` : ''}User: ${question}
-Brain:`;
-}
-
 function fmtTime(ts: number) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-// ── Copy button ──
 function CopyBtn({ text }: { text: string }) {
   const [done, setDone] = useState(false);
   return (
@@ -94,7 +62,6 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
-// ── Animated counter for stats ──
 function Counter({ to, suffix = '', duration = 1500 }: { to: number; suffix?: string; duration?: number }) {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -109,40 +76,63 @@ function Counter({ to, suffix = '', duration = 1500 }: { to: number; suffix?: st
   return <>{val.toLocaleString()}{suffix}</>;
 }
 
+// ── Private Brain label for AI messages ──────────────────────
+function PrivateBrainLabel() {
+  return (
+    <div className="pb-answer-label">
+      <span className="pb-answer-label-icon">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <rect x="3" y="11" width="18" height="11" rx="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </span>
+      Answering from your Private Brain
+    </div>
+  );
+}
+
+// ── Suggested questions ───────────────────────────────────────
+const SUGGESTIONS = [
+  'What is this document mainly about?',
+  'What are the key findings or conclusions?',
+  'What evidence supports the main argument?',
+  'What should I remember most from this?',
+];
+
 export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: Props) {
-  const [phase, setPhase]     = useState<Phase>('hero');
-  const [docText, setDocText] = useState('');
-  const [fileName, setFileName] = useState('');
-  const [fileError, setFileError] = useState('');
-  const [dragOver, setDragOver]   = useState(false);
+  const [phase,       setPhase]       = useState<Phase>('hero');
+  const [docText,     setDocText]     = useState('');
+  const [fileName,    setFileName]    = useState('');
+  const [fileError,   setFileError]   = useState('');
+  const [dragOver,    setDragOver]    = useState(false);
   const [analyzeStep, setAnalyzeStep] = useState<'summary' | 'keypoints' | 'done'>('summary');
-  const [progress, setProgress] = useState(0);
-
-  const [summary, setSummary]     = useState('');
-  const [keyPoints, setKeyPoints] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'insights' | 'chat'>('insights');
-
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput]       = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Stats shown after analysis
+  const [progress,    setProgress]    = useState(0);
+  const [summary,     setSummary]     = useState('');
+  const [keyPoints,   setKeyPoints]   = useState<string[]>([]);
+  const [activeTab,   setActiveTab]   = useState<'insights' | 'chat'>('insights');
+  const [messages,    setMessages]    = useState<ChatMessage[]>([]);
+  const [input,       setInput]       = useState('');
+  const [isGenerating,setIsGenerating]= useState(false);
   const [analyzeTime, setAnalyzeTime] = useState(0);
-  const analyzeStart = useRef(0);
+  const [heroEntered, setHeroEntered] = useState(false);
 
-  const fileRef   = useRef<HTMLInputElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLTextAreaElement>(null);
-  const abortRef  = useRef(false);
-  const bufRef    = useRef('');
-  const rafRef    = useRef<number>(0);
-  const fnRef     = useRef('');
-  const { run }   = useStreamingAI(model);
+  const fileRef      = useRef<HTMLInputElement>(null);
+  const bottomRef    = useRef<HTMLDivElement>(null);
+  const inputRef     = useRef<HTMLTextAreaElement>(null);
+  const abortRef     = useRef(false);
+  const bufRef       = useRef('');
+  const rafRef       = useRef<number>(0);
+  const fnRef        = useRef('');
+  const analyzeStart = useRef(0);
+  const { run }      = useStreamingAI(model);
+
+  // Hero fade-in
+  useEffect(() => { const t = setTimeout(() => setHeroEntered(true), 60); return () => clearTimeout(t); }, []);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages.length]);
   useEffect(() => { fnRef.current = fileName; }, [fileName]);
 
-  // Progress animation
+  // Progress bar animation
   useEffect(() => {
     if (phase !== 'analyzing') return;
     const target = analyzeStep === 'summary' ? 48 : 92;
@@ -163,7 +153,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
       const text = await extractText(file);
       if (!text.trim()) throw new Error('No readable text found.');
       setDocText(text);
-      onPdfLoaded?.(text, file.name); // share with App context
+      onPdfLoaded?.(text, file.name);
       analyzeStart.current = Date.now();
       startAnalysis(text);
     } catch (e: unknown) {
@@ -177,12 +167,12 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
     setPhase('analyzing'); setSummary(''); setKeyPoints([]); setMessages([]); setProgress(0);
 
     setAnalyzeStep('summary');
-    await run(buildSummaryPrompt(text), { maxTokens: 140, temperature: 0.15 }, (t: string) => setSummary(t));
+    await run(buildSummaryPrompt(text), { maxTokens: 160, temperature: 0.15 }, (t: string) => setSummary(t));
 
     setAnalyzeStep('keypoints');
     let kpRaw = '';
     await run(
-      buildKeyPointsPrompt(text), { maxTokens: 170, temperature: 0.15 },
+      buildKeyPointsPrompt(text), { maxTokens: 200, temperature: 0.15 },
       (t: string) => { kpRaw = t; },
       () => {
         const pts = kpRaw.split('\n')
@@ -197,7 +187,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
         setActiveTab('insights');
         setMessages([{
           id: 'welcome', role: 'ai', fromKnowledge: true,
-          content: `I've read "${fnRef.current}" and it's loaded into your Brain. ${notesContext ? 'Your notes are also active as context. ' : ''}Ask me anything — I'll only answer from your documents.`,
+          content: `I've read "${fnRef.current}" and it's loaded into your Private Brain.${notesContext ? ' Your notes are also active as context.' : ''} Ask me anything — I'll only answer from your documents.`,
           timestamp: Date.now(),
         }]);
       }
@@ -218,9 +208,8 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
     bufRef.current = ''; cancelAnimationFrame(rafRef.current);
 
     try {
-      // Use PDF + notes as unified context
-      const prompt = buildKnowledgePrompt(docText, notesContext, [...messages, userMsg], msg);
-      for await (const tok of model.generate(prompt, { maxTokens: 320, temperature: 0.4 })) {
+      const prompt = buildPrivateBrainPrompt(docText, notesContext, [...messages, userMsg], msg);
+      for await (const tok of model.generate(prompt, { maxTokens: 380, temperature: 0.3 })) {
         if (abortRef.current) break;
         bufRef.current += tok;
         cancelAnimationFrame(rafRef.current);
@@ -238,48 +227,79 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
+
   const reset = () => {
     setPhase('hero'); setDocText(''); setFileName(''); setSummary('');
     setKeyPoints([]); setMessages([]); setFileError(''); setInput(''); setProgress(0);
     onPdfLoaded?.('', '');
   };
+
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault(); setDragOver(false);
     const f = e.dataTransfer.files[0]; if (f) handleFile(f);
   };
+
   const wordCount = docText.trim().split(/\s+/).filter(Boolean).length;
   const userMsgs  = messages.filter(m => m.role === 'user').length;
   const hasNotes  = notesContext.length > 10;
 
   // ════════════════════════════════════════════
-  // HERO
+  // HERO — Enhanced landing
   // ════════════════════════════════════════════
   if (phase === 'hero') return (
-    <div className="ws-hero">
+    <div className={`ws-hero hero-enhanced ${heroEntered ? 'hero-visible' : ''}`}>
+      {/* Animated gradient background */}
+      <div className="hero-gradient-bg" aria-hidden="true"/>
       <div className="ws-glow ws-glow-1"/><div className="ws-glow ws-glow-2"/>
+
       <div className="ws-hero-inner">
 
         {/* Live status badge */}
-        <div className="ws-hero-badge">
+        <div className="ws-hero-badge hero-badge-slide">
           <span className="ws-hero-dot"/>
           Your knowledge stays yours — zero cloud, zero tracking
         </div>
 
         {/* Title */}
-        <h1 className="ws-hero-title">
+        <h1 className="ws-hero-title hero-title-fade">
           Your Private<br/>
           <span className="ws-hero-grad">AI Brain</span>
         </h1>
 
-        {/* Subtitle */}
-        <p className="ws-hero-sub">
-          Upload any PDF or write notes. Your Brain instantly summarizes, extracts insights,
-          and lets you chat with your knowledge — all processed privately on your device.
-          <span className="hero-sub-highlight"> No internet required after setup.</span>
+        {/* Subtitle — explains the 3 pillars */}
+        <p className="ws-hero-sub hero-sub-fade">
+          Upload a PDF, write notes, and chat with your documents — powered by AI that
+          runs <strong>entirely on your device</strong>. No internet needed after setup.
+          No server ever sees your data.
+          <span className="hero-sub-highlight"> 100% offline. 100% private.</span>
         </p>
 
-        {/* VS ChatGPT comparison */}
-        <div className="hero-compare">
+        {/* How it works — 3-step horizontal flow */}
+        <div className="hero-how-it-works hero-steps-fade">
+          <div className="hero-step">
+            <div className="hero-step-num">01</div>
+            <div className="hero-step-icon">📄</div>
+            <div className="hero-step-label">Upload PDF</div>
+            <div className="hero-step-desc">Any PDF, DOCX, TXT or MD file</div>
+          </div>
+          <div className="hero-step-arrow">→</div>
+          <div className="hero-step">
+            <div className="hero-step-num">02</div>
+            <div className="hero-step-icon">🧠</div>
+            <div className="hero-step-label">AI Analyzes</div>
+            <div className="hero-step-desc">On-device AI reads & understands</div>
+          </div>
+          <div className="hero-step-arrow">→</div>
+          <div className="hero-step">
+            <div className="hero-step-num">03</div>
+            <div className="hero-step-icon">💬</div>
+            <div className="hero-step-label">Chat Privately</div>
+            <div className="hero-step-desc">Ask anything — answers from your docs</div>
+          </div>
+        </div>
+
+        {/* VS comparison */}
+        <div className="hero-compare hero-compare-fade">
           <div className="hero-compare-item hero-compare-bad">
             <span className="hero-compare-icon">❌</span>
             <div>
@@ -297,24 +317,9 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
           </div>
         </div>
 
-        {/* 3 feature cards */}
-        <div className="ws-hero-features">
-          {[
-            { icon: '📄', bg: 'rgba(108,142,245,0.12)', bd: 'rgba(108,142,245,0.22)', title: 'Analyze Documents', desc: 'PDF, DOCX, TXT — understood instantly' },
-            { icon: '✏️', bg: 'rgba(56,189,248,0.1)',   bd: 'rgba(56,189,248,0.22)',  title: 'Brain Notes',       desc: 'Capture ideas, summarize with AI' },
-            { icon: '🔒', bg: 'rgba(52,211,153,0.1)',   bd: 'rgba(52,211,153,0.22)',  title: '100% Private',      desc: 'On-device AI · works offline' },
-          ].map((f, i) => (
-            <div key={f.title} className="ws-hero-feature" style={{ animationDelay: `${0.2 + i * 0.1}s` }}>
-              <div className="ws-hero-feature-icon" style={{ background: f.bg, border: `1px solid ${f.bd}` }}>{f.icon}</div>
-              <div className="ws-hero-feature-title">{f.title}</div>
-              <div className="ws-hero-feature-desc">{f.desc}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Upload zone */}
+        {/* Upload CTA — main action */}
         <div
-          className={`ws-drop ${dragOver ? 'over' : ''}`}
+          className={`ws-drop hero-drop-fade ${dragOver ? 'over' : ''}`}
           onDragOver={e => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
@@ -330,7 +335,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
           </div>
           <span className="ws-drop-title">Upload PDF to Start</span>
           <span className="ws-drop-sub">PDF · DOCX · TXT · MD · drag & drop or click</span>
-          <span className="ws-drop-cta">→ Get instant summary + key insights</span>
+          <span className="ws-drop-cta">→ Get instant AI summary + private chat</span>
           {model.status !== 'ready' && (
             <span className="ws-drop-warn">
               <span className="spinner" style={{ width: 11, height: 11 }}/> Brain loading — upload when ready
@@ -340,19 +345,19 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
 
         {fileError && <div className="ws-error">⚠️ {fileError}</div>}
 
-        {/* Notes active indicator */}
         {hasNotes && (
           <div className="hero-notes-active">
             <span>✏️</span> Brain Notes loaded — will be included as context in chat
           </div>
         )}
 
-        {/* Pill stats */}
+        {/* Feature pills */}
         <div className="ws-pills">
-          <span className="ws-pill">⚡ Auto-summary</span>
-          <span className="ws-pill">🎯 Key insights</span>
-          <span className="ws-pill">💬 PDF + Notes chat</span>
-          <span className="ws-pill">✈️ Works offline</span>
+          <span className="ws-pill">⚡ Instant Summary</span>
+          <span className="ws-pill">🔒 100% Private</span>
+          <span className="ws-pill">💬 Chat with Docs</span>
+          <span className="ws-pill">✈️ Works Offline</span>
+          <span className="ws-pill">🆓 Free Forever</span>
         </div>
       </div>
     </div>
@@ -436,7 +441,6 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
           </div>
         </div>
 
-        {/* Context sources */}
         <div className="ws-context-sources">
           <span className="ws-source-chip ws-source-pdf">📄 {fileName.slice(0, 20)}{fileName.length > 20 ? '…' : ''}</span>
           {hasNotes && <span className="ws-source-chip ws-source-notes">✏️ Brain Notes</span>}
@@ -457,12 +461,10 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
         </div>
       </div>
 
-      {/* ── INSIGHTS PANEL ── */}
+      {/* ── INSIGHTS ── */}
       {activeTab === 'insights' && (
         <div className="ws-content">
           <div className="ws-panel">
-
-            {/* Stats bar */}
             {analyzeTime > 0 && (
               <div className="stats-bar">
                 <div className="stat-item">
@@ -487,8 +489,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
               </div>
             )}
 
-            {/* Summary card */}
-            <div className="ws-result-card ws-summary-card" style={{ animationDelay: '0s' }}>
+            <div className="ws-result-card ws-summary-card">
               <div className="ws-result-header">
                 <div className="ws-result-icon" style={{ background: 'rgba(108,142,245,0.15)', color: '#6C8EF5' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -508,8 +509,7 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
               </div>
             </div>
 
-            {/* Key insights card */}
-            <div className="ws-result-card ws-kp-card" style={{ animationDelay: '0.1s' }}>
+            <div className="ws-result-card ws-kp-card">
               <div className="ws-result-header">
                 <div className="ws-result-icon" style={{ background: 'rgba(56,189,248,0.12)', color: '#38BDF8' }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -535,7 +535,6 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
               </div>
             </div>
 
-            {/* CTA to chat */}
             <button className="ws-goto-btn" onClick={() => setActiveTab('chat')}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -546,32 +545,27 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
         </div>
       )}
 
-      {/* ── CHAT PANEL ── */}
+      {/* ── CHAT ── */}
       {activeTab === 'chat' && (
         <div className="ws-chat-panel">
 
-          {/* Context bar — shows what sources are active */}
+          {/* Context bar */}
           <div className="ws-chat-context-bar">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
             </svg>
-            <strong>Answering from your knowledge:</strong>
+            <strong>Context loaded:</strong>
             <span className="ctx-source">📄 {fileName}</span>
             {hasNotes && <span className="ctx-source">✏️ Brain Notes</span>}
             <span className="ws-context-badge">Private · On-device</span>
           </div>
 
-          {/* Suggested questions */}
+          {/* Suggestions */}
           {messages.length <= 1 && (
             <div className="ws-suggestions">
-              <div className="ws-suggestions-title">Start exploring:</div>
+              <div className="ws-suggestions-title">Ask your document:</div>
               <div className="ws-suggestions-grid">
-                {[
-                  'What is this document mainly about?',
-                  'What are the key findings or conclusions?',
-                  'What evidence supports the main argument?',
-                  'What should I remember from this?',
-                ].map(q => (
+                {SUGGESTIONS.map(q => (
                   <button key={q} className="ws-suggestion" onClick={() => sendMessage(q)} disabled={isGenerating}>
                     {q}
                   </button>
@@ -591,12 +585,9 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
                   }
                 </div>
                 <div className="ws-msg-body">
-                  {/* "Answering from your knowledge" label on AI messages */}
+                  {/* "Answering from your Private Brain" label */}
                   {m.role === 'ai' && m.fromKnowledge && m.content && !(isGenerating && i === messages.length - 1) && (
-                    <div className="knowledge-label">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                      Answering from your knowledge
-                    </div>
+                    <PrivateBrainLabel />
                   )}
                   <div className={`ws-bubble ${m.role}`}>
                     {!m.content && isGenerating && i === messages.length - 1

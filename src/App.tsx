@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useModelLoader } from './hooks/useModelLoader';
 import { useKnowledgeContext } from './hooks/useKnowledgeContext';
@@ -17,13 +16,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('pdf');
   const [darkMode, setDarkMode]   = useState(true);
   const [showDemo, setShowDemo]   = useState(false);
-  const [pwaReady, setPwaReady]   = useState(false);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then(() => setPwaReady(true)).catch(() => {});
-    }
     const on  = () => setIsOffline(false);
     const off = () => setIsOffline(true);
     window.addEventListener('online',  on);
@@ -32,7 +27,7 @@ export default function App() {
   }, []);
 
   if (['idle','initializing','downloading','loading'].includes(model.status)) {
-    return <LoadingScreen progress={model.progress} label={model.progressLabel} status={model.status} />;
+    return <LoadingScreen progress={model.progress} label={model.progressLabel} status={model.status} offlineReady={model.offlineReady} />;
   }
 
   const statusReady = model.status === 'ready';
@@ -80,14 +75,20 @@ export default function App() {
         </nav>
 
         <div className="topnav-right">
-          {/* Offline indicator */}
           {isOffline && (
             <div className="offline-indicator">
               <span>✈️</span> Offline Mode
             </div>
           )}
 
-          {/* Knowledge context indicator */}
+          {/* ── OFFLINE READY BADGE ── */}
+          {model.offlineReady && (
+            <div className="offline-ready-badge" title="Model is cached — app works with no internet">
+              <span className="offline-ready-dot"/>
+              <span>Offline Ready</span>
+            </div>
+          )}
+
           {knowledge.hasContext && (
             <div className="knowledge-pill" title={knowledge.contextSummary}>
               <span className="knowledge-dot"/>
@@ -98,7 +99,6 @@ export default function App() {
           <div className="status-pill">
             <span className="status-dot" style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}88` }}/>
             <span className="status-text">{statusReady ? 'Brain Ready' : 'Loading…'}</span>
-            {pwaReady && statusReady && <span className="offline-chip">✈️</span>}
           </div>
 
           <button className="topnav-btn demo-btn" onClick={() => setShowDemo(true)}>
@@ -126,10 +126,7 @@ export default function App() {
               notesContext={knowledge.notesText}
             />
           )}
-          {activeTab === 'notes' && (
-            <SmartNotes model={model} />
-            
-          )}
+          {activeTab === 'notes' && <SmartNotes model={model} />}
         </div>
       </main>
 
