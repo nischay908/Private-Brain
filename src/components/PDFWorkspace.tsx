@@ -163,7 +163,24 @@ export default function PDFWorkspace({ model, onPdfLoaded, notesContext = '' }: 
   }, []); // eslint-disable-line
 
   const startAnalysis = async (text: string) => {
-    if (model.status !== 'ready') { setFileError('Brain is still loading. Please wait.'); return; }
+    // If model is still loading, WAIT for it instead of failing
+    if (model.status !== 'ready') {
+      setPhase('reading');
+      setFileError('');
+      await new Promise<void>((resolve, reject) => {
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attempts++;
+          if (model.status === 'ready') { clearInterval(interval); resolve(); }
+          if (model.status === 'error') { clearInterval(interval); reject(new Error('AI model failed to load. Please refresh the page.')); }
+          if (attempts > 300) { clearInterval(interval); reject(new Error('Model took too long. Please refresh and try again.')); }
+        }, 1000);
+      }).catch((e: unknown) => {
+        setFileError(e instanceof Error ? e.message : 'Model failed to load.');
+        setPhase('hero');
+        throw e;
+      });
+    }
     setPhase('analyzing'); setSummary(''); setKeyPoints([]); setMessages([]); setProgress(0);
 
     setAnalyzeStep('summary');
