@@ -29,3 +29,11 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>
 );
+// Register service worker for offline support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(() => console.log('✅ Offline ready'))
+      .catch(() => console.log('SW not available'));
+  });
+}
