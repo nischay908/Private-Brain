@@ -10,6 +10,62 @@ import PWAInstallBanner from './components/PWAInstallBanner';
 
 export type Tab = 'pdf' | 'notes';
 
+// ── Error screen with retry ──────────────────────────────────
+function ErrorScreen({ error, onRetry }: { error: string; onRetry: () => void }) {
+  return (
+    <div className="pb-loading dark" style={{ flexDirection: 'column', gap: 0 }}>
+      <div className="pb-loading-blob pb-blob-1"/>
+      <div className="pb-loading-blob pb-blob-2"/>
+      <div className="pb-loading-card loading-card-enter" style={{ maxWidth: 480 }}>
+        <div style={{ fontSize: 48 }}>⚠️</div>
+        <h2 style={{ fontFamily: 'var(--font-display,sans-serif)', fontSize: 22, fontWeight: 800, color: 'rgba(255,255,255,0.9)', letterSpacing: '-0.5px', textAlign: 'center' }}>
+          AI Model Failed to Load
+        </h2>
+        <p style={{ fontSize: 13.5, color: 'rgba(255,255,255,0.4)', textAlign: 'center', lineHeight: 1.6, maxWidth: 340 }}>
+          {error || 'Could not load the on-device AI. This usually means your browser does not support WebGPU, or there was a network issue during download.'}
+        </p>
+
+        {/* Likely causes */}
+        <div style={{ width: '100%', background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.2)', borderRadius: 12, padding: '14px 16px', textAlign: 'left' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'rgba(248,113,113,0.8)', marginBottom: 8, fontFamily: 'var(--font-mono,monospace)' }}>
+            Common causes
+          </div>
+          {[
+            '❌ Browser does not support WebGPU (use Chrome 113+ or Edge)',
+            '❌ Internet connection interrupted during model download',
+            '❌ Insufficient GPU / device memory (needs ~2GB free RAM)',
+            '❌ Private/Incognito mode blocking IndexedDB',
+          ].map(c => (
+            <div key={c} style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.45)', marginBottom: 5, lineHeight: 1.4 }}>{c}</div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
+          <button
+            onClick={onRetry}
+            style={{ padding: '13px 20px', borderRadius: 12, background: 'linear-gradient(135deg,#6C8EF5,#38BDF8)', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, fontFamily: 'var(--font-body,sans-serif)', transition: 'all 0.2s' }}
+            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.03)')}
+            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+          >
+            🔄 Retry Loading
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            style={{ padding: '11px 20px', borderRadius: 12, background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: 13, fontFamily: 'var(--font-body,sans-serif)' }}
+          >
+            ↺ Hard Refresh Page
+          </button>
+        </div>
+
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', textAlign: 'center', fontFamily: 'var(--font-mono,monospace)' }}>
+          ✅ Tested on: Chrome 113+ · Edge 113+ · Chrome for Android
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const model     = useModelLoader();
   const knowledge = useKnowledgeContext();
@@ -26,12 +82,17 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
+  // Loading states
   if (['idle','initializing','downloading','loading'].includes(model.status)) {
     return <LoadingScreen progress={model.progress} label={model.progressLabel} status={model.status} offlineReady={model.offlineReady} />;
   }
 
-  const statusReady = model.status === 'ready';
-  const statusColor = statusReady ? '#34D399' : '#F59E0B';
+  // ── ERROR STATE — show proper error screen with retry ──
+  if (model.status === 'error') {
+    return <ErrorScreen error={model.error || ''} onRetry={model.reload} />;
+  }
+
+  const statusColor = '#34D399';
 
   return (
     <div className={`app-shell ${darkMode ? 'dark' : 'light'}`}>
@@ -81,9 +142,8 @@ export default function App() {
             </div>
           )}
 
-          {/* ── OFFLINE READY BADGE ── */}
           {model.offlineReady && (
-            <div className="offline-ready-badge" title="Model is cached — app works with no internet">
+            <div className="offline-ready-badge" title="Model cached — works without internet">
               <span className="offline-ready-dot"/>
               <span>Offline Ready</span>
             </div>
@@ -98,7 +158,7 @@ export default function App() {
 
           <div className="status-pill">
             <span className="status-dot" style={{ background: statusColor, boxShadow: `0 0 8px ${statusColor}88` }}/>
-            <span className="status-text">{statusReady ? 'Brain Ready' : 'Loading…'}</span>
+            <span className="status-text">Brain Ready</span>
           </div>
 
           <button className="topnav-btn demo-btn" onClick={() => setShowDemo(true)}>
